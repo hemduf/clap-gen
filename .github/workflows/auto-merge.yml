@@ -5,6 +5,7 @@ on:
     types: [created]
 
 permissions:
+  checks: read
   contents: write
   pull-requests: write
 
@@ -35,6 +36,18 @@ jobs:
           fi
           if [ "$base_ref" != "main" ]; then
             echo "::error::Auto-merge is restricted to pull requests targeting main"
+            exit 1
+          fi
+
+      - name: Verify Required CI gate passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          gate_state="$(gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json name,state --jq '.[] | select(.name == "Required CI gate") | .state' | tail -n 1)"
+          if [ "$gate_state" != "SUCCESS" ]; then
+            echo "::error::Required CI gate must pass before auto-merge"
             exit 1
           fi
 
