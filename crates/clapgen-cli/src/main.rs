@@ -166,17 +166,17 @@ fn inspect_capabilities(path: &Path) -> Result<String, String> {
     Ok(capability_report_kdl(&compile_ir(path)?))
 }
 
-fn compatibility_diff(baseline: &Path, current: &Path, json: bool) -> Result<String, String> {
-    let baseline = compile_ir(baseline)?;
-    let current = compile_ir(current)?;
-    let report = compare_compat(&baseline, &current)?;
+fn compatibility_diff(baseline_path: &Path, current_path: &Path, json: bool) -> Result<String, String> {
+    let baseline = compile_ir(baseline_path)?;
+    let current = compile_ir(current_path)?;
+    let report = compare_compat(&baseline, &current, baseline_path, current_path)?;
     Ok(if json { report.json() } else { report.text() })
 }
 
-fn check_compatibility(baseline: &Path, current: &Path) -> Result<String, String> {
-    let baseline = compile_ir(baseline)?;
-    let current = compile_ir(current)?;
-    let report = compare_compat(&baseline, &current)?;
+fn check_compatibility(baseline_path: &Path, current_path: &Path) -> Result<String, String> {
+    let baseline = compile_ir(baseline_path)?;
+    let current = compile_ir(current_path)?;
+    let report = compare_compat(&baseline, &current, baseline_path, current_path)?;
     if report.has_forbidden() {
         return Err(format!(
             "compatibility check failed:\n{}\nhint: preserve released persistent IDs/topology or explicitly migrate the public compatibility contract",
