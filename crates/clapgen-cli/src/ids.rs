@@ -170,6 +170,9 @@ fn lock_registry(path: &Path) -> Result<RegistryLock, String> {
 }
 
 fn load_registry(path: &Path) -> Result<Registry, String> {
+    if !path.exists() {
+        return Ok(Registry::default());
+    }
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read `{}`: {error}", path.display()))?;
     parse_registry(path, &source)
