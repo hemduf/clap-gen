@@ -1,3 +1,4 @@
+mod compat;
 mod ids;
 mod ir;
 mod metadata;
@@ -8,11 +9,12 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 
+use compat::compare as compare_compat;
 use ids::{allocate as allocate_id, rename as rename_id, tombstone as tombstone_id};
 use ir::{CanonicalIr, build_ir, capability_report_kdl, serialize_ir_kdl};
 use metadata::{DEFAULT_MANIFEST, format_metadata, parse_metadata};
 
-const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  ids allocate PATH KIND KEY     Allocate or return an immutable numeric CLAP ID\n  ids rename PATH KIND OLD NEW   Rename a registry symbol without changing its numeric ID\n  ids tombstone PATH KIND KEY    Permanently retire an allocated ID\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
+const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  ids allocate PATH KIND KEY     Allocate or return an immutable numeric CLAP ID\n  ids rename PATH KIND OLD NEW   Rename a registry symbol without changing its numeric ID\n  ids tombstone PATH KIND KEY    Permanently retire an allocated ID\n  diff BASELINE CURRENT          Report compatibility changes as deterministic text\n  diff --format json BASELINE CURRENT\n                                 Report compatibility changes as deterministic JSON\n  check-compat BASELINE CURRENT  Fail when a forbidden compatibility change is detected\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
 
 fn main() -> ExitCode {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
@@ -45,6 +47,17 @@ fn run(arguments: &[String]) -> Result<String, String> {
         }
         [command, path] if command == "deps" => metadata_dependencies(Path::new(path)),
         [command, path] if command == "validate" => validate_file(Path::new(path)),
+        [command, baseline, current] if command == "diff" => {
+            compatibility_diff(Path::new(baseline), Path::new(current), false)
+        }
+        [command, flag, format, baseline, current]
+            if command == "diff" && flag == "--format" && format == "json" =>
+        {
+            compatibility_diff(Path::new(baseline), Path::new(current), true)
+        }
+        [command, baseline, current] if command == "check-compat" => {
+            check_compatibility(Path::new(baseline), Path::new(current))
+        }
         [command, action, path, kind, key] if command == "ids" && action == "allocate" => {
             let value = allocate_id(Path::new(path), kind, key)?;
             Ok(format!("{kind}:{key}={value}"))
@@ -151,6 +164,26 @@ fn inspect_ir(path: &Path) -> Result<String, String> {
 
 fn inspect_capabilities(path: &Path) -> Result<String, String> {
     Ok(capability_report_kdl(&compile_ir(path)?))
+}
+
+fn compatibility_diff(baseline: &Path, current: &Path, json: bool) -> Result<String, String> {
+    let baseline = compile_ir(baseline)?;
+    let current = compile_ir(current)?;
+    let report = compare_compat(&baseline, &current)?;
+    Ok(if json { report.json() } else { report.text() })
+}
+
+fn check_compatibility(baseline: &Path, current: &Path) -> Result<String, String> {
+    let baseline = compile_ir(baseline)?;
+    let current = compile_ir(current)?;
+    let report = compare_compat(&baseline, &current)?;
+    if report.has_forbidden() {
+        return Err(format!(
+            "compatibility check failed:\n{}\nhint: preserve released persistent IDs/topology or explicitly migrate the public compatibility contract",
+            report.text()
+        ));
+    }
+    Ok(format!("compatibility: ok\n{}", report.text()))
 }
 
 fn doctor() -> Result<String, String> {
@@ -288,6 +321,47 @@ mod tests {
         ]))
         .expect_err("tombstone cannot be reused");
         assert!(error.contains("tombstoned"), "{error}");
+
+        fs::remove_dir_all(directory).expect("remove directory");
+    }
+
+    #[test]
+    fn diff_and_check_compat_use_released_baseline() {
+        let directory = temporary_directory();
+        fs::create_dir_all(&directory).expect("directory");
+        let baseline = directory.join("baseline.kdl");
+        let current = directory.join("current.kdl");
+        let prefix = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.p\" name=\"P\" vendor=\"Example\" version=\"1\"\nprocessor class=\"P\"\n";
+        fs::write(
+            &baseline,
+            format!("{prefix}parameters {{ param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5 }}\naudio-ports {{ output \"Main\" id=\"out\" channels=2 }}\nnote-ports {{}}\nstate {{}}\ngui {{}}\npresets {{}}\nfactories {{}}\nextensions {{}}\n"),
+        )
+        .expect("write baseline");
+        fs::write(
+            &current,
+            format!("{prefix}parameters {{ param \"Gain\" id=\"gain\" min=0.0 max=2.0 default=0.5 }}\naudio-ports {{}}\nnote-ports {{}}\nstate {{}}\ngui {{}}\npresets {{}}\nfactories {{}}\nextensions {{}}\n"),
+        )
+        .expect("write current");
+        let baseline_text = baseline.to_string_lossy().into_owned();
+        let current_text = current.to_string_lossy().into_owned();
+
+        let text = run(&arguments(&["diff", &baseline_text, &current_text])).expect("diff");
+        assert!(text.contains("sensitive parameter.gain.range"), "{text}");
+        assert!(text.contains("forbidden audio-port.out"), "{text}");
+        let json = run(&arguments(&[
+            "diff",
+            "--format",
+            "json",
+            &baseline_text,
+            &current_text,
+        ]))
+        .expect("json diff");
+        assert!(json.starts_with("{\"changes\":["), "{json}");
+        assert!(json.contains("\"forbidden\":true"), "{json}");
+        let error = run(&arguments(&["check-compat", &baseline_text, &current_text]))
+            .expect_err("forbidden change must fail");
+        assert!(error.contains("compatibility check failed"), "{error}");
+        assert!(error.contains("audio-port.out"), "{error}");
 
         fs::remove_dir_all(directory).expect("remove directory");
     }
