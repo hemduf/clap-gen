@@ -62,7 +62,9 @@ fn run(arguments: &[String]) -> Result<String, String> {
             let value = allocate_id(Path::new(path), kind, key)?;
             Ok(format!("{kind}:{key}={value}"))
         }
-        [command, action, path, kind, old_key, new_key] if command == "ids" && action == "rename" => {
+        [command, action, path, kind, old_key, new_key]
+            if command == "ids" && action == "rename" =>
+        {
             let value = rename_id(Path::new(path), kind, old_key, new_key)?;
             Ok(format!("{kind}:{new_key}={value}"))
         }
@@ -88,7 +90,10 @@ fn run(arguments: &[String]) -> Result<String, String> {
 fn init_manifest(path: &Path) -> Result<String, String> {
     if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
         fs::create_dir_all(parent).map_err(|error| {
-            format!("failed to create metadata directory `{}`: {error}", parent.display())
+            format!(
+                "failed to create metadata directory `{}`: {error}",
+                parent.display()
+            )
         })?;
     }
 
@@ -166,11 +171,19 @@ fn inspect_capabilities(path: &Path) -> Result<String, String> {
     Ok(capability_report_kdl(&compile_ir(path)?))
 }
 
-fn compatibility_diff(baseline_path: &Path, current_path: &Path, json: bool) -> Result<String, String> {
+fn compatibility_diff(
+    baseline_path: &Path,
+    current_path: &Path,
+    json: bool,
+) -> Result<String, String> {
     let baseline = compile_ir(baseline_path)?;
     let current = compile_ir(current_path)?;
     let report = compare_compat(&baseline, &current, baseline_path, current_path)?;
-    Ok(if json { report.json() } else { report.text() })
+    Ok(if json {
+        report.json()
+    } else {
+        report.text()
+    })
 }
 
 fn check_compatibility(baseline_path: &Path, current_path: &Path) -> Result<String, String> {
@@ -192,7 +205,13 @@ fn doctor() -> Result<String, String> {
         .parse::<kdl::KdlDocument>()
         .map_err(|error| format!("KDL 2.0 parser check failed: {error}"))?;
 
-    Ok(["clapgen doctor", "status: ok", "metadata: KDL 2.0", "runtime: C++20"].join("\n"))
+    Ok([
+        "clapgen doctor",
+        "status: ok",
+        "metadata: KDL 2.0",
+        "runtime: C++20",
+    ]
+    .join("\n"))
 }
 
 #[cfg(test)]
@@ -225,7 +244,10 @@ mod tests {
     #[test]
     fn validates_the_bootstrap_contract() {
         let output = run(&arguments(&["doctor"])).expect("doctor should succeed");
-        assert_eq!("clapgen doctor\nstatus: ok\nmetadata: KDL 2.0\nruntime: C++20", output);
+        assert_eq!(
+            "clapgen doctor\nstatus: ok\nmetadata: KDL 2.0\nruntime: C++20",
+            output
+        );
     }
 
     #[test]
@@ -270,8 +292,13 @@ mod tests {
         assert!(ir.starts_with("ir version=1\n"), "{ir}");
         assert!(ir.contains("capabilities {"), "{ir}");
 
-        let capabilities = run(&arguments(&["inspect", "--format", "capabilities", &path_text]))
-            .expect("capability report should succeed");
+        let capabilities = run(&arguments(&[
+            "inspect",
+            "--format",
+            "capabilities",
+            &path_text,
+        ]))
+        .expect("capability report should succeed");
         assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
@@ -286,8 +313,14 @@ mod tests {
 
         assert_eq!(
             "parameter:cutoff=1",
-            run(&arguments(&["ids", "allocate", &registry_text, "parameter", "cutoff"]))
-                .expect("allocate")
+            run(&arguments(&[
+                "ids",
+                "allocate",
+                &registry_text,
+                "parameter",
+                "cutoff",
+            ]))
+            .expect("allocate")
         );
         assert_eq!(
             "parameter:filter-cutoff=1",
@@ -358,8 +391,12 @@ mod tests {
         .expect("json diff");
         assert!(json.starts_with("{\"changes\":["), "{json}");
         assert!(json.contains("\"forbidden\":true"), "{json}");
-        let error = run(&arguments(&["check-compat", &baseline_text, &current_text]))
-            .expect_err("forbidden change must fail");
+        let error = run(&arguments(&[
+            "check-compat",
+            &baseline_text,
+            &current_text,
+        ]))
+        .expect_err("forbidden change must fail");
         assert!(error.contains("compatibility check failed"), "{error}");
         assert!(error.contains("audio-port.out"), "{error}");
 
