@@ -1,3 +1,5 @@
+mod metadata;
+
 use std::env;
 use std::process::ExitCode;
 
