@@ -1,0 +1,36 @@
+ir version=1
+plugin id="com.example.snapshot" name="Snapshot" vendor="Example" version="1.0.0" features="instrument,synthesizer"
+processor class="SnapshotProcessor"
+parameters {
+    param id="gain" name="Gain" min=0 max=1 default=0.5 flags="automatable" unit="db"
+}
+audio-ports {
+    input id="main-in" name="Main In" channels=2 flags="main"
+    input id="aux-in" name="Aux In" channels=2
+    output id="main-out" name="Main Out" channels=2 flags="main"
+}
+note-ports {
+}
+state {
+}
+gui {
+}
+presets {
+}
+factories {
+}
+extensions {
+    stable "clap.preset-load/2" version="2"
+}
+imports {
+}
+capabilities {
+    parameters count=1
+    audio-ports count=3
+    note-ports count=0
+    note-names count=0
+    state-fields count=0
+    gui-apis count=0
+    factories count=0
+    extension "clap.preset-load/2" stability="stable" version="2"
+}
