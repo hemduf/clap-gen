@@ -7,16 +7,8 @@ use kdl::{KdlDocument, KdlNode, KdlValue};
 use crate::metadata::ParsedMetadata;
 
 const IR_VERSION: u32 = 1;
-const PARAM_FLAGS: &[&str] = &[
-    "automatable",
-    "bypass",
-    "enum",
-    "hidden",
-    "modulatable",
-    "periodic",
-    "readonly",
-    "stepped",
-];
+const PARAM_FLAGS: &[&str] =
+    &["automatable", "bypass", "enum", "hidden", "modulatable", "periodic", "readonly", "stepped"];
 const AUDIO_FLAGS: &[&str] = &["main", "requires-common-sample-size"];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -344,13 +336,7 @@ fn build_note_ports(
                     "include the preferred dialect in `dialects`",
                 ));
             }
-            Ok(NotePortIr {
-                name: display_name(node, &id),
-                id,
-                direction,
-                dialects,
-                preferred,
-            })
+            Ok(NotePortIr { name: display_name(node, &id), id, direction, dialects, preferred })
         })
         .collect()
 }
@@ -432,9 +418,8 @@ fn build_gui(path: &Path, source: &str, root: Option<&KdlNode>) -> Result<GuiIr,
                 embedded: bool_prop(node, "embedded").unwrap_or(true),
             }),
             "resource" => {
-                let resource_path = first_string(node)
-                    .or_else(|| string_prop(node, "path"))
-                    .ok_or_else(|| {
+                let resource_path =
+                    first_string(node).or_else(|| string_prop(node, "path")).ok_or_else(|| {
                         diagnostic(
                             path,
                             source,
@@ -496,8 +481,7 @@ fn build_factories(
                 .to_owned();
             Ok(FactoryIr {
                 id,
-                kind: string_prop(node, "kind")
-                    .map_or_else(|| "plugin".to_owned(), token),
+                kind: string_prop(node, "kind").map_or_else(|| "plugin".to_owned(), token),
             })
         })
         .collect()
@@ -549,17 +533,14 @@ fn build_extensions(
 
 fn has_exact_draft_pin(id: &str, version: Option<&str>) -> bool {
     version.is_some_and(|version| {
-        id.rsplit_once('/')
-            .is_some_and(|(_, abi)| !abi.is_empty() && abi == version)
+        id.rsplit_once('/').is_some_and(|(_, abi)| !abi.is_empty() && abi == version)
     })
 }
 
 fn canonicalize(ir: &mut CanonicalIr) {
     ir.parameters.sort_by(|a, b| a.id.cmp(&b.id));
-    ir.audio_ports
-        .sort_by(|a, b| (a.direction, &a.id).cmp(&(b.direction, &b.id)));
-    ir.note_ports
-        .sort_by(|a, b| (a.direction, &a.id).cmp(&(b.direction, &b.id)));
+    ir.audio_ports.sort_by(|a, b| (a.direction, &a.id).cmp(&(b.direction, &b.id)));
+    ir.note_ports.sort_by(|a, b| (a.direction, &a.id).cmp(&(b.direction, &b.id)));
     ir.note_names.sort_by(|a, b| {
         (&a.name, a.key, a.channel, &a.port).cmp(&(&b.name, b.key, b.channel, &b.port))
     });
@@ -576,43 +557,15 @@ fn canonicalize(ir: &mut CanonicalIr) {
 }
 
 fn validate_unique_ids(path: &Path, source: &str, ir: &CanonicalIr) -> Result<(), String> {
+    unique(path, source, ir.parameters.iter().map(|value| value.id.as_str()), "parameter")?;
+    unique(path, source, ir.audio_ports.iter().map(|value| value.id.as_str()), "audio port")?;
+    unique(path, source, ir.note_ports.iter().map(|value| value.id.as_str()), "note port")?;
+    unique(path, source, ir.state_fields.iter().map(|value| value.name.as_str()), "state field")?;
+    unique(path, source, ir.factories.iter().map(|value| value.id.as_str()), "factory")?;
     unique(
         path,
         source,
-        ir.parameters.iter().map(|value| value.id.as_str()),
-        "parameter",
-    )?;
-    unique(
-        path,
-        source,
-        ir.audio_ports.iter().map(|value| value.id.as_str()),
-        "audio port",
-    )?;
-    unique(
-        path,
-        source,
-        ir.note_ports.iter().map(|value| value.id.as_str()),
-        "note port",
-    )?;
-    unique(
-        path,
-        source,
-        ir.state_fields.iter().map(|value| value.name.as_str()),
-        "state field",
-    )?;
-    unique(
-        path,
-        source,
-        ir.factories.iter().map(|value| value.id.as_str()),
-        "factory",
-    )?;
-    unique(
-        path,
-        source,
-        ir.stable_extensions
-            .iter()
-            .chain(&ir.draft_extensions)
-            .map(|value| value.id.as_str()),
+        ir.stable_extensions.iter().chain(&ir.draft_extensions).map(|value| value.id.as_str()),
         "extension",
     )
 }
@@ -643,10 +596,7 @@ fn validate_audio_references(
     source: &str,
     ports: &[AudioPortIr],
 ) -> Result<(), String> {
-    let by_id = ports
-        .iter()
-        .map(|port| (port.id.as_str(), port))
-        .collect::<BTreeMap<_, _>>();
+    let by_id = ports.iter().map(|port| (port.id.as_str(), port)).collect::<BTreeMap<_, _>>();
     for port in ports {
         let Some(target_id) = port.in_place_pair.as_deref() else {
             continue;
@@ -685,10 +635,7 @@ fn validate_note_name_references(
     ports: &[NotePortIr],
     names: &[NoteNameIr],
 ) -> Result<(), String> {
-    let ids = ports
-        .iter()
-        .map(|port| port.id.as_str())
-        .collect::<BTreeSet<_>>();
+    let ids = ports.iter().map(|port| port.id.as_str()).collect::<BTreeSet<_>>();
     for name in names {
         if let Some(port) = name.port.as_deref() {
             if !ids.contains(port) {
@@ -737,11 +684,7 @@ fn validate_dependencies(path: &Path, source: &str, ir: &CanonicalIr) -> Result<
 }
 
 fn canonical_imports(metadata: &ParsedMetadata) -> Vec<String> {
-    metadata
-        .imports
-        .iter()
-        .map(|value| normalize_path(&value.to_string_lossy()))
-        .collect()
+    metadata.imports.iter().map(|value| normalize_path(&value.to_string_lossy())).collect()
 }
 
 pub(crate) fn serialize_ir_kdl(ir: &CanonicalIr) -> String {
@@ -798,10 +741,7 @@ fn write_parameters(out: &mut String, parameters: &[ParameterIr]) {
             number_text(value.default),
             list_prop("flags", &value.flags),
             option_prop("unit", value.unit.as_deref()),
-            value
-                .steps
-                .map(|steps| format!(" steps={steps}"))
-                .unwrap_or_default()
+            value.steps.map(|steps| format!(" steps={steps}")).unwrap_or_default()
         )
         .expect("String write cannot fail");
     }
@@ -846,14 +786,8 @@ fn write_note_ports(out: &mut String, ports: &[NotePortIr], names: &[NoteNameIr]
             out,
             "    note-name {}{}{}{}",
             quote(&value.name),
-            value
-                .key
-                .map(|key| format!(" key={key}"))
-                .unwrap_or_default(),
-            value
-                .channel
-                .map(|channel| format!(" channel={channel}"))
-                .unwrap_or_default(),
+            value.key.map(|key| format!(" key={key}")).unwrap_or_default(),
+            value.channel.map(|channel| format!(" channel={channel}")).unwrap_or_default(),
             option_prop("port", value.port.as_deref())
         )
         .expect("String write cannot fail");
@@ -869,11 +803,7 @@ fn write_state(out: &mut String, fields: &[StateFieldIr]) {
             "    field {} type={}{}{}",
             quote(&value.name),
             quote(&value.field_type),
-            value
-                .default
-                .as_ref()
-                .map(|default| format!(" default={default}"))
-                .unwrap_or_default(),
+            value.default.as_ref().map(|default| format!(" default={default}")).unwrap_or_default(),
             option_prop("tag", value.tag.as_deref())
         )
         .expect("String write cannot fail");
@@ -933,13 +863,8 @@ fn write_presets(out: &mut String, presets: &PresetsIr) {
 fn write_factories(out: &mut String, factories: &[FactoryIr]) {
     out.push_str("factories {\n");
     for value in factories {
-        writeln!(
-            out,
-            "    factory {} kind={}",
-            quote(&value.id),
-            quote(&value.kind)
-        )
-        .expect("String write cannot fail");
+        writeln!(out, "    factory {} kind={}", quote(&value.id), quote(&value.kind))
+            .expect("String write cannot fail");
     }
     out.push_str("}\n");
 }
@@ -1014,9 +939,7 @@ pub(crate) fn capability_report_kdl(ir: &CanonicalIr) -> String {
 }
 
 fn children(root: Option<&KdlNode>) -> impl Iterator<Item = &KdlNode> {
-    root.and_then(KdlNode::children)
-        .into_iter()
-        .flat_map(KdlDocument::nodes)
+    root.and_then(KdlNode::children).into_iter().flat_map(KdlDocument::nodes)
 }
 
 fn children_named<'a>(
@@ -1027,11 +950,7 @@ fn children_named<'a>(
 }
 
 fn display_name(node: &KdlNode, id: &str) -> String {
-    first_string(node)
-        .or_else(|| string_prop(node, "name"))
-        .unwrap_or(id)
-        .trim()
-        .to_owned()
+    first_string(node).or_else(|| string_prop(node, "name")).unwrap_or(id).trim().to_owned()
 }
 
 fn required_string(path: &Path, source: &str, node: &KdlNode, key: &str) -> Result<String, String> {
@@ -1152,11 +1071,8 @@ fn named_list(
             "use a comma-separated string of symbolic names",
         ));
     };
-    let mut values = value
-        .split(',')
-        .map(token)
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
+    let mut values =
+        value.split(',').map(token).filter(|value| !value.is_empty()).collect::<Vec<_>>();
     values.sort();
     values.dedup();
     Ok(values)
@@ -1235,11 +1151,7 @@ fn value_text(value: &KdlValue) -> String {
 }
 
 fn number_text(value: f64) -> String {
-    if value == 0.0 {
-        "0".to_owned()
-    } else {
-        value.to_string()
-    }
+    if value == 0.0 { "0".to_owned() } else { value.to_string() }
 }
 
 fn token(value: &str) -> String {
@@ -1261,11 +1173,7 @@ fn normalize_path(value: &str) -> String {
         }
     }
     let joined = parts.join("/");
-    if absolute {
-        format!("/{joined}")
-    } else {
-        joined
-    }
+    if absolute { format!("/{joined}") } else { joined }
 }
 
 fn quote(value: &str) -> String {
@@ -1279,17 +1187,11 @@ fn quote(value: &str) -> String {
 }
 
 fn option_prop(name: &str, value: Option<&str>) -> String {
-    value
-        .map(|value| format!(" {name}={}", quote(value)))
-        .unwrap_or_default()
+    value.map(|value| format!(" {name}={}", quote(value))).unwrap_or_default()
 }
 
 fn list_prop(name: &str, values: &[String]) -> String {
-    if values.is_empty() {
-        String::new()
-    } else {
-        format!(" {name}={}", quote(&values.join(",")))
-    }
+    if values.is_empty() { String::new() } else { format!(" {name}={}", quote(&values.join(","))) }
 }
 
 const fn bool_text(value: bool) -> &'static str {
