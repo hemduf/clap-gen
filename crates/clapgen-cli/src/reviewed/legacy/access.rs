@@ -142,7 +142,7 @@ pub(crate) struct TypedIr {
     pub(crate) draft_extensions: Vec<ExtensionIr>,
 }
 
-pub(super) fn build(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> TypedIr {
+pub(crate) fn build(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> TypedIr {
     TypedIr {
         plugin: PluginIr {
             id: ir.plugin.id.clone(),
