@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsStr;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -8,23 +9,27 @@ use kdl::{KdlDocument, KdlValue};
 const REGISTRY_VERSION: i128 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Entry {
-    kind: String,
-    key: String,
-    value: u32,
-    tombstone: bool,
+pub(crate) struct RegistryEntry {
+    pub(crate) kind: String,
+    pub(crate) key: String,
+    pub(crate) value: u32,
+    pub(crate) tombstone: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Registry {
     version: i128,
     next: u32,
-    entries: Vec<Entry>,
+    entries: Vec<RegistryEntry>,
 }
 
 impl Default for Registry {
     fn default() -> Self {
-        Self { version: REGISTRY_VERSION, next: 1, entries: Vec::new() }
+        Self {
+            version: REGISTRY_VERSION,
+            next: 1,
+            entries: Vec::new(),
+        }
     }
 }
 
@@ -43,9 +48,12 @@ pub(crate) fn allocate(path: &Path, kind: &str, key: &str) -> Result<u32, String
     validate_symbol(key, "key")?;
     let _lock = lock_registry(path)?;
     let mut registry = load_registry(path)?;
-    validate_registry(path, &registry)?;
 
-    if let Some(entry) = registry.entries.iter().find(|entry| entry.kind == kind && entry.key == key) {
+    if let Some(entry) = registry
+        .entries
+        .iter()
+        .find(|entry| entry.kind == kind && entry.key == key)
+    {
         if entry.tombstone {
             return Err(format!(
                 "{}: `{kind}:{key}` is tombstoned and cannot be allocated again",
@@ -60,7 +68,7 @@ pub(crate) fn allocate(path: &Path, kind: &str, key: &str) -> Result<u32, String
         .next
         .checked_add(1)
         .ok_or_else(|| format!("{}: numeric CLAP ID space exhausted", path.display()))?;
-    registry.entries.push(Entry {
+    registry.entries.push(RegistryEntry {
         kind: kind.to_owned(),
         key: key.to_owned(),
         value,
@@ -77,11 +85,27 @@ pub(crate) fn rename(path: &Path, kind: &str, old_key: &str, new_key: &str) -> R
     validate_symbol(new_key, "new key")?;
     let _lock = lock_registry(path)?;
     let mut registry = load_registry(path)?;
-    validate_registry(path, &registry)?;
 
-    if registry.entries.iter().any(|entry| entry.kind == kind && entry.key == new_key) {
-        return Err(format!("{}: target `{kind}:{new_key}` already exists", path.display()));
+    if old_key == new_key {
+        return registry
+            .entries
+            .iter()
+            .find(|entry| entry.kind == kind && entry.key == old_key && !entry.tombstone)
+            .map(|entry| entry.value)
+            .ok_or_else(|| format!("{}: active ID `{kind}:{old_key}` was not found", path.display()));
     }
+
+    if registry
+        .entries
+        .iter()
+        .any(|entry| entry.kind == kind && entry.key == new_key)
+    {
+        return Err(format!(
+            "{}: target `{kind}:{new_key}` already exists",
+            path.display()
+        ));
+    }
+
     let entry = registry
         .entries
         .iter_mut()
@@ -99,7 +123,6 @@ pub(crate) fn tombstone(path: &Path, kind: &str, key: &str) -> Result<u32, Strin
     validate_symbol(key, "key")?;
     let _lock = lock_registry(path)?;
     let mut registry = load_registry(path)?;
-    validate_registry(path, &registry)?;
     let entry = registry
         .entries
         .iter_mut()
@@ -111,9 +134,18 @@ pub(crate) fn tombstone(path: &Path, kind: &str, key: &str) -> Result<u32, Strin
     Ok(value)
 }
 
+pub(crate) fn read_entries(path: &Path) -> Result<Option<Vec<RegistryEntry>>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(load_registry(path)?.entries))
+}
+
 fn validate_symbol(value: &str, label: &str) -> Result<(), String> {
     if value.trim().is_empty() || value.chars().any(char::is_whitespace) {
-        return Err(format!("invalid {label} `{value}`: use a non-empty stable symbolic token"));
+        return Err(format!(
+            "invalid {label} `{value}`: use a non-empty stable symbolic token"
+        ));
     }
     Ok(())
 }
@@ -123,7 +155,7 @@ fn lock_registry(path: &Path) -> Result<RegistryLock, String> {
         fs::create_dir_all(parent)
             .map_err(|error| format!("failed to create `{}`: {error}", parent.display()))?;
     }
-    let lock_path = PathBuf::from(format!("{}.lock", path.display()));
+    let lock_path = suffixed_path(path, OsStr::new(".lock"));
     OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -138,9 +170,6 @@ fn lock_registry(path: &Path) -> Result<RegistryLock, String> {
 }
 
 fn load_registry(path: &Path) -> Result<Registry, String> {
-    if !path.exists() {
-        return Ok(Registry::default());
-    }
     let source = fs::read_to_string(path)
         .map_err(|error| format!("failed to read `{}`: {error}", path.display()))?;
     parse_registry(path, &source)
@@ -164,18 +193,29 @@ fn parse_registry(path: &Path, source: &str) -> Result<Registry, String> {
         .and_then(|value| u32::try_from(value).ok())
         .filter(|value| *value > 0)
         .ok_or_else(|| format!("{}: `ids` requires positive integer `next`", path.display()))?;
+
     let mut entries = Vec::new();
     if let Some(children) = root.children() {
-        for node in children.nodes().iter().filter(|node| node.name().value() == "entry") {
-            let kind = string_prop(node, "kind")
-                .ok_or_else(|| format!("{}: registry entry requires string `kind`", path.display()))?;
-            let key = string_prop(node, "key")
-                .ok_or_else(|| format!("{}: registry entry requires string `key`", path.display()))?;
+        for node in children
+            .nodes()
+            .iter()
+            .filter(|node| node.name().value() == "entry")
+        {
+            let kind = string_prop(node, "kind").ok_or_else(|| {
+                format!("{}: registry entry requires string `kind`", path.display())
+            })?;
+            let key = string_prop(node, "key").ok_or_else(|| {
+                format!("{}: registry entry requires string `key`", path.display())
+            })?;
+            validate_symbol(kind, "registry kind")?;
+            validate_symbol(key, "registry key")?;
             let value = integer_prop(node, "value")
                 .and_then(|value| u32::try_from(value).ok())
-                .ok_or_else(|| format!("{}: registry entry requires u32 `value`", path.display()))?;
-            let tombstone = bool_prop(node, "tombstone").unwrap_or(false);
-            entries.push(Entry {
+                .ok_or_else(|| {
+                    format!("{}: registry entry requires u32 `value`", path.display())
+                })?;
+            let tombstone = optional_bool_prop(node, "tombstone")?.unwrap_or(false);
+            entries.push(RegistryEntry {
                 kind: kind.to_owned(),
                 key: key.to_owned(),
                 value,
@@ -183,7 +223,12 @@ fn parse_registry(path: &Path, source: &str) -> Result<Registry, String> {
             });
         }
     }
-    let mut registry = Registry { version, next, entries };
+
+    let mut registry = Registry {
+        version,
+        next,
+        entries,
+    };
     canonicalize(&mut registry);
     validate_registry(path, &registry)?;
     Ok(registry)
@@ -197,40 +242,60 @@ fn validate_registry(path: &Path, registry: &Registry) -> Result<(), String> {
         if !symbols.insert(symbol) {
             return Err(format!(
                 "{}: duplicate registry symbol `{}:{}`",
-                path.display(), entry.kind, entry.key
+                path.display(),
+                entry.kind,
+                entry.key
             ));
         }
         if let Some(previous) = values.insert(entry.value, symbol) {
             return Err(format!(
                 "{}: numeric ID collision `{}` between `{}:{}` and `{}:{}`",
-                path.display(), entry.value, previous.0, previous.1, entry.kind, entry.key
+                path.display(),
+                entry.value,
+                previous.0,
+                previous.1,
+                entry.kind,
+                entry.key
             ));
         }
     }
-    if registry.entries.iter().any(|entry| entry.value >= registry.next) {
+    if registry
+        .entries
+        .iter()
+        .any(|entry| entry.value >= registry.next)
+    {
         return Err(format!(
             "{}: registry `next={}` must be greater than every allocated/tombstoned ID",
-            path.display(), registry.next
+            path.display(),
+            registry.next
         ));
     }
     Ok(())
 }
 
 fn canonicalize(registry: &mut Registry) {
-    registry.entries.sort_by(|a, b| (a.value, &a.kind, &a.key).cmp(&(b.value, &b.kind, &b.key)));
+    registry
+        .entries
+        .sort_by(|a, b| (a.value, &a.kind, &a.key).cmp(&(b.value, &b.kind, &b.key)));
 }
 
 fn write_registry_atomic(path: &Path, registry: &Registry) -> Result<(), String> {
     let source = serialize_registry(registry);
-    let temp = PathBuf::from(format!("{}.tmp-{}", path.display(), std::process::id()));
+    let temp_suffix = format!(".tmp-{}", std::process::id());
+    let temp = suffixed_path(path, OsStr::new(&temp_suffix));
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&temp)
         .map_err(|error| format!("failed to create `{}`: {error}", temp.display()))?;
-    file.write_all(source.as_bytes())
-        .and_then(|()| file.sync_all())
-        .map_err(|error| format!("failed to persist `{}`: {error}", temp.display()))?;
+
+    if let Err(error) = file.write_all(source.as_bytes()).and_then(|()| file.sync_all()) {
+        drop(file);
+        let _ = fs::remove_file(&temp);
+        return Err(format!("failed to persist `{}`: {error}", temp.display()));
+    }
+    drop(file);
+
     fs::rename(&temp, path).map_err(|error| {
         let _ = fs::remove_file(&temp);
         format!("failed to atomically update `{}`: {error}", path.display())
@@ -252,8 +317,17 @@ fn serialize_registry(registry: &Registry) -> String {
     out
 }
 
+fn suffixed_path(path: &Path, suffix: &OsStr) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    value.into()
+}
+
 fn quote(value: &str) -> String {
-    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+    format!(
+        "\"{}\"",
+        value.replace('\\', "\\\\").replace('"', "\\\"")
+    )
 }
 
 fn prop<'a>(node: &'a kdl::KdlNode, key: &str) -> Option<&'a KdlValue> {
@@ -277,10 +351,11 @@ fn integer_prop(node: &kdl::KdlNode, key: &str) -> Option<i128> {
     }
 }
 
-fn bool_prop(node: &kdl::KdlNode, key: &str) -> Option<bool> {
-    match prop(node, key)? {
-        KdlValue::Bool(value) => Some(*value),
-        _ => None,
+fn optional_bool_prop(node: &kdl::KdlNode, key: &str) -> Result<Option<bool>, String> {
+    match prop(node, key) {
+        None => Ok(None),
+        Some(KdlValue::Bool(value)) => Ok(Some(*value)),
+        Some(_) => Err(format!("registry property `{key}` must be a KDL boolean")),
     }
 }
 
@@ -293,7 +368,7 @@ mod tests {
     use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{allocate, parse_registry, rename, serialize_registry, tombstone};
+    use super::{allocate, parse_registry, read_entries, rename, serialize_registry, tombstone};
 
     fn temporary_path() -> PathBuf {
         let nonce = SystemTime::now()
@@ -307,9 +382,23 @@ mod tests {
     fn allocation_is_stable_and_rename_preserves_numeric_id() {
         let path = temporary_path();
         assert_eq!(1, allocate(&path, "parameter", "cutoff").expect("allocate"));
-        assert_eq!(1, allocate(&path, "parameter", "cutoff").expect("idempotent allocate"));
-        assert_eq!(1, rename(&path, "parameter", "cutoff", "filter-cutoff").expect("rename"));
-        assert_eq!(1, allocate(&path, "parameter", "filter-cutoff").expect("renamed lookup"));
+        assert_eq!(
+            1,
+            allocate(&path, "parameter", "cutoff").expect("idempotent allocate")
+        );
+        assert_eq!(
+            1,
+            rename(&path, "parameter", "cutoff", "filter-cutoff").expect("rename")
+        );
+        assert_eq!(
+            1,
+            allocate(&path, "parameter", "filter-cutoff").expect("renamed lookup")
+        );
+        assert_eq!(
+            1,
+            rename(&path, "parameter", "filter-cutoff", "filter-cutoff")
+                .expect("idempotent rename")
+        );
         let _ = fs::remove_file(path);
     }
 
@@ -325,6 +414,21 @@ mod tests {
     }
 
     #[test]
+    fn existing_registry_is_replaced_by_rename_and_tombstone() {
+        let path = temporary_path();
+        allocate(&path, "parameter", "old").expect("initial allocation");
+        rename(&path, "parameter", "old", "new").expect("replace registry during rename");
+        tombstone(&path, "parameter", "new").expect("replace registry during tombstone");
+        let entries = read_entries(&path)
+            .expect("registry read")
+            .expect("registry exists");
+        assert_eq!(1, entries.len());
+        assert_eq!(1, entries[0].value);
+        assert!(entries[0].tombstone);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn collisions_are_rejected_with_actionable_diagnostic() {
         let path = temporary_path();
         let source = "ids version=1 next=3 {\n    entry kind=\"parameter\" key=\"a\" value=1\n    entry kind=\"port\" key=\"b\" value=1\n}\n";
@@ -332,6 +436,15 @@ mod tests {
         assert!(error.contains("collision"), "{error}");
         assert!(error.contains("parameter:a"), "{error}");
         assert!(error.contains("port:b"), "{error}");
+    }
+
+    #[test]
+    fn malformed_tombstone_type_is_rejected() {
+        let path = temporary_path();
+        let source = "ids version=1 next=2 { entry kind=\"parameter\" key=\"a\" value=1 tombstone=\"false\" }\n";
+        let error = parse_registry(&path, source).expect_err("non-boolean tombstone must fail");
+        assert!(error.contains("tombstone"), "{error}");
+        assert!(error.contains("boolean"), "{error}");
     }
 
     #[test]
@@ -346,15 +459,24 @@ mod tests {
                 allocate(&path, "parameter", key)
             })
         });
-        let first = handles.into_iter().map(|handle| handle.join().expect("thread")).collect::<Vec<_>>();
-        let successes = first.iter().filter_map(|result| result.as_ref().ok().copied()).collect::<Vec<_>>();
-        assert!(successes.len() >= 1, "at least one concurrent writer should succeed: {first:?}");
-        if successes.len() == 2 {
-            assert_ne!(successes[0], successes[1], "concurrent writers must never receive duplicate IDs");
-        } else {
-            let error = first.iter().find_map(|result| result.as_ref().err()).expect("one lock error");
-            assert!(error.contains("another `clapgen ids` update"), "{error}");
+        let first = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread"))
+            .collect::<Vec<_>>();
+
+        let mut values = Vec::new();
+        for (key, result) in ["a", "b"].into_iter().zip(first) {
+            match result {
+                Ok(value) => values.push(value),
+                Err(error) => {
+                    assert!(error.contains("another `clapgen ids` update"), "{error}");
+                    values.push(allocate(&path, "parameter", key).expect("retry after lock release"));
+                }
+            }
         }
+        values.sort_unstable();
+        assert_eq!(vec![1, 2], values);
+
         let source = fs::read_to_string(&path).expect("registry must remain readable");
         parse_registry(&path, &source).expect("registry must remain valid after concurrent update");
         let _ = fs::remove_file(path);
