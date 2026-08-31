@@ -76,10 +76,7 @@ fn transitive_imports_are_exposed_as_deterministic_dependencies() {
     .expect("manifest");
 
     let ir = build_file(&manifest).expect("IR should build");
-    assert_eq!(
-        &["plugin.kdl", "shared/common.kdl", "shared/nested/params.kdl"],
-        ir.dependencies()
-    );
+    assert_eq!(&["plugin.kdl", "shared/common.kdl", "shared/nested/params.kdl"], ir.dependencies());
 
     fs::remove_dir_all(directory).expect("cleanup");
 }
