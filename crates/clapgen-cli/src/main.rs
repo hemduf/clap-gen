@@ -90,10 +90,7 @@ fn run(arguments: &[String]) -> Result<String, String> {
 fn init_manifest(path: &Path) -> Result<String, String> {
     if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
         fs::create_dir_all(parent).map_err(|error| {
-            format!(
-                "failed to create metadata directory `{}`: {error}",
-                parent.display()
-            )
+            format!("failed to create metadata directory `{}`: {error}", parent.display())
         })?;
     }
 
@@ -179,11 +176,7 @@ fn compatibility_diff(
     let baseline = compile_ir(baseline_path)?;
     let current = compile_ir(current_path)?;
     let report = compare_compat(&baseline, &current, baseline_path, current_path)?;
-    Ok(if json {
-        report.json()
-    } else {
-        report.text()
-    })
+    Ok(if json { report.json() } else { report.text() })
 }
 
 fn check_compatibility(baseline_path: &Path, current_path: &Path) -> Result<String, String> {
@@ -205,13 +198,7 @@ fn doctor() -> Result<String, String> {
         .parse::<kdl::KdlDocument>()
         .map_err(|error| format!("KDL 2.0 parser check failed: {error}"))?;
 
-    Ok([
-        "clapgen doctor",
-        "status: ok",
-        "metadata: KDL 2.0",
-        "runtime: C++20",
-    ]
-    .join("\n"))
+    Ok(["clapgen doctor", "status: ok", "metadata: KDL 2.0", "runtime: C++20"].join("\n"))
 }
 
 #[cfg(test)]
@@ -244,10 +231,7 @@ mod tests {
     #[test]
     fn validates_the_bootstrap_contract() {
         let output = run(&arguments(&["doctor"])).expect("doctor should succeed");
-        assert_eq!(
-            "clapgen doctor\nstatus: ok\nmetadata: KDL 2.0\nruntime: C++20",
-            output
-        );
+        assert_eq!("clapgen doctor\nstatus: ok\nmetadata: KDL 2.0\nruntime: C++20", output);
     }
 
     #[test]
@@ -292,13 +276,8 @@ mod tests {
         assert!(ir.starts_with("ir version=1\n"), "{ir}");
         assert!(ir.contains("capabilities {"), "{ir}");
 
-        let capabilities = run(&arguments(&[
-            "inspect",
-            "--format",
-            "capabilities",
-            &path_text,
-        ]))
-        .expect("capability report should succeed");
+        let capabilities = run(&arguments(&["inspect", "--format", "capabilities", &path_text]))
+            .expect("capability report should succeed");
         assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
@@ -313,14 +292,8 @@ mod tests {
 
         assert_eq!(
             "parameter:cutoff=1",
-            run(&arguments(&[
-                "ids",
-                "allocate",
-                &registry_text,
-                "parameter",
-                "cutoff",
-            ]))
-            .expect("allocate")
+            run(&arguments(&["ids", "allocate", &registry_text, "parameter", "cutoff",]))
+                .expect("allocate")
         );
         assert_eq!(
             "parameter:filter-cutoff=1",
@@ -336,23 +309,12 @@ mod tests {
         );
         assert_eq!(
             "tombstoned parameter:filter-cutoff=1",
-            run(&arguments(&[
-                "ids",
-                "tombstone",
-                &registry_text,
-                "parameter",
-                "filter-cutoff",
-            ]))
-            .expect("tombstone")
+            run(&arguments(&["ids", "tombstone", &registry_text, "parameter", "filter-cutoff",]))
+                .expect("tombstone")
         );
-        let error = run(&arguments(&[
-            "ids",
-            "allocate",
-            &registry_text,
-            "parameter",
-            "filter-cutoff",
-        ]))
-        .expect_err("tombstone cannot be reused");
+        let error =
+            run(&arguments(&["ids", "allocate", &registry_text, "parameter", "filter-cutoff"]))
+                .expect_err("tombstone cannot be reused");
         assert!(error.contains("tombstoned"), "{error}");
 
         fs::remove_dir_all(directory).expect("remove directory");
@@ -381,22 +343,12 @@ mod tests {
         let text = run(&arguments(&["diff", &baseline_text, &current_text])).expect("diff");
         assert!(text.contains("sensitive parameter.gain.range"), "{text}");
         assert!(text.contains("forbidden audio-port.out"), "{text}");
-        let json = run(&arguments(&[
-            "diff",
-            "--format",
-            "json",
-            &baseline_text,
-            &current_text,
-        ]))
-        .expect("json diff");
+        let json = run(&arguments(&["diff", "--format", "json", &baseline_text, &current_text]))
+            .expect("json diff");
         assert!(json.starts_with("{\"changes\":["), "{json}");
         assert!(json.contains("\"forbidden\":true"), "{json}");
-        let error = run(&arguments(&[
-            "check-compat",
-            &baseline_text,
-            &current_text,
-        ]))
-        .expect_err("forbidden change must fail");
+        let error = run(&arguments(&["check-compat", &baseline_text, &current_text]))
+            .expect_err("forbidden change must fail");
         assert!(error.contains("compatibility check failed"), "{error}");
         assert!(error.contains("audio-port.out"), "{error}");
 
