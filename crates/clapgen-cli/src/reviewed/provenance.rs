@@ -51,14 +51,7 @@ pub(crate) fn collect(
     if let Ok(root) = fs::canonicalize(root_path) {
         stack.insert(root);
     }
-    load_imports(
-        root_path,
-        &root_display,
-        root_metadata,
-        &mut imports,
-        &mut loaded,
-        &mut stack,
-    )?;
+    load_imports(root_path, &root_display, root_metadata, &mut imports, &mut loaded, &mut stack)?;
 
     imports.sort_by(|a, b| a.display_path.cmp(&b.display_path));
 
@@ -189,12 +182,15 @@ fn collect_section(
 fn semantic_key(section: &str, node: &KdlNode) -> Option<String> {
     match (section, node.name().value()) {
         ("parameters", "param") => string_prop(node, "id").map(|id| format!("parameter:{id}")),
-        ("audio-ports", "input" | "output") => string_prop(node, "id")
-            .map(|id| format!("audio-port:{}:{id}", node.name().value())),
-        ("note-ports", "input" | "output") => string_prop(node, "id")
-            .map(|id| format!("note-port:{}:{id}", node.name().value())),
+        ("audio-ports", "input" | "output") => {
+            string_prop(node, "id").map(|id| format!("audio-port:{}:{id}", node.name().value()))
+        }
+        ("note-ports", "input" | "output") => {
+            string_prop(node, "id").map(|id| format!("note-port:{}:{id}", node.name().value()))
+        }
         ("note-ports", "note-name") => first_string(node).map(|name| {
-            let key = integer_prop(node, "key").map_or_else(|| "*".to_owned(), |value| value.to_string());
+            let key =
+                integer_prop(node, "key").map_or_else(|| "*".to_owned(), |value| value.to_string());
             let channel = integer_prop(node, "channel")
                 .map_or_else(|| "*".to_owned(), |value| value.to_string());
             let port = string_prop(node, "port").unwrap_or("*");
@@ -211,9 +207,9 @@ fn semantic_key(section: &str, node: &KdlNode) -> Option<String> {
             .map(|path| format!("resource:{}", normalize_path(path))),
         ("presets", "location") => first_string(node).map(|name| format!("preset-location:{name}")),
         ("presets", "format") => first_string(node).map(|name| format!("preset-format:{name}")),
-        ("factories", "factory") => first_string(node)
-            .or_else(|| string_prop(node, "id"))
-            .map(|id| format!("factory:{id}")),
+        ("factories", "factory") => {
+            first_string(node).or_else(|| string_prop(node, "id")).map(|id| format!("factory:{id}"))
+        }
         ("extensions", "enable") => first_string(node)
             .or_else(|| string_prop(node, "id"))
             .map(|id| format!("extension:{id}")),
@@ -254,7 +250,9 @@ fn normalize_display_path(path: &Path) -> String {
             }
             Component::Normal(value) => parts.push(value.to_string_lossy().into_owned()),
             Component::RootDir => parts.clear(),
-            Component::Prefix(prefix) => parts.push(prefix.as_os_str().to_string_lossy().into_owned()),
+            Component::Prefix(prefix) => {
+                parts.push(prefix.as_os_str().to_string_lossy().into_owned())
+            }
         }
     }
     parts.join("/")
