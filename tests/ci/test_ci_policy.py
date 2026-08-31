@@ -79,6 +79,7 @@ class CiPolicyTest(unittest.TestCase):
         self.assertIn("clap-gen-reviewer[bot]", review_policy)
         self.assertIn("must never self-approve", review_policy.lower())
         self.assertIn("Required CI gate", review_policy)
+        self.assertIn("Allow auto-merge", review_policy)
 
     def test_auto_merge_only_enables_after_independent_same_repo_approval(self) -> None:
         workflow = read(".github/workflows/auto-merge.yml")
@@ -95,6 +96,8 @@ class CiPolicyTest(unittest.TestCase):
         self.assertIn("contents: write", workflow)
         self.assertIn("pull-requests: write", workflow)
         self.assertIn("gh pr merge --auto --squash", workflow)
+        self.assertIn(".allow_auto_merge", workflow)
+        self.assertIn("Repository auto-merge is disabled", workflow)
         self.assertNotIn("actions/checkout", workflow)
         self.assertNotIn("secrets.", workflow)
 
