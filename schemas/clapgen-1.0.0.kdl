@@ -1,0 +1,379 @@
+document {
+    info {
+        title "clap-gen metadata"
+        description "Structural schema for clap-gen KDL 2.0 author metadata"
+        version "1.0.0"
+        license "MIT" spdx="MIT"
+    }
+
+    node "clapgen" {
+        min 1
+        max 1
+        prop "schema" {
+            required #true
+            type "string"
+            enum "1.0.0"
+        }
+    }
+
+    node "import" {
+        value {
+            min 1
+            max 1
+            type "string"
+        }
+        prop "optional" {
+            type "boolean"
+        }
+    }
+
+    node "plugin" {
+        min 1
+        max 1
+        prop "id" {
+            required #true
+            type "string"
+        }
+        prop "name" {
+            required #true
+            type "string"
+        }
+        prop "vendor" {
+            required #true
+            type "string"
+        }
+        prop "version" {
+            required #true
+            type "string"
+        }
+        prop "url" {
+            type "string"
+            format "url"
+        }
+        prop "manual-url" {
+            type "string"
+            format "url"
+        }
+        prop "support-url" {
+            type "string"
+            format "url"
+        }
+        prop "description" {
+            type "string"
+        }
+        children {
+            node "feature" {
+                value {
+                    min 1
+                    max 1
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "processor" {
+        min 1
+        max 1
+        prop "class" {
+            required #true
+            type "string"
+        }
+        prop "features" {
+            type "string"
+        }
+    }
+
+    node "parameters" {
+        min 1
+        max 1
+        children {
+            node "param" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    required #true
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "min" {
+                    type "number"
+                }
+                prop "max" {
+                    type "number"
+                }
+                prop "default" {
+                    type "number"
+                }
+                prop "flags" {
+                    type "string"
+                }
+                prop "unit" {
+                    type "string"
+                }
+                prop "steps" {
+                    type "number"
+                    format "u64"
+                }
+            }
+        }
+    }
+
+    node "audio-ports" {
+        min 1
+        max 1
+        children {
+            node "input" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    required #true
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "channels" {
+                    required #true
+                    type "number"
+                    format "u32"
+                }
+                prop "type" {
+                    type "string"
+                }
+                prop "flags" {
+                    type "string"
+                }
+                prop "in-place-pair" {
+                    type "string"
+                }
+            }
+            node "output" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    required #true
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "channels" {
+                    required #true
+                    type "number"
+                    format "u32"
+                }
+                prop "type" {
+                    type "string"
+                }
+                prop "flags" {
+                    type "string"
+                }
+                prop "in-place-pair" {
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "note-ports" {
+        min 1
+        max 1
+        children {
+            node "input" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    required #true
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "dialects" {
+                    type "string"
+                }
+                prop "preferred" {
+                    type "string"
+                }
+            }
+            node "output" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    required #true
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "dialects" {
+                    type "string"
+                }
+                prop "preferred" {
+                    type "string"
+                }
+            }
+            node "note-name" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "key" {
+                    type "number"
+                    format "i32"
+                }
+                prop "channel" {
+                    type "number"
+                    format "i32"
+                }
+                prop "port" {
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "state" {
+        min 1
+        max 1
+        children {
+            node "field" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "type" {
+                    type "string"
+                }
+                prop "default"
+                prop "tag" {
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "gui" {
+        min 1
+        max 1
+        children {
+            node "api" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "name" {
+                    type "string"
+                }
+                prop "floating" {
+                    type "boolean"
+                }
+                prop "embedded" {
+                    type "boolean"
+                }
+            }
+            node "resource" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "path" {
+                    type "string"
+                }
+                prop "mime" {
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "presets" {
+        min 1
+        max 1
+        children {
+            node "location" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "kind" {
+                    type "string"
+                }
+                prop "path" {
+                    type "string"
+                }
+            }
+            node "format" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "extension" {
+                    type "string"
+                }
+                prop "mime" {
+                    type "string"
+                }
+            }
+        }
+    }
+
+    node "extensions" {
+        min 1
+        max 1
+        children {
+            node "namespace" {
+                value {
+                    min 1
+                    max 1
+                    type "string"
+                }
+            }
+            node "enable" {
+                value {
+                    min 0
+                    max 1
+                    type "string"
+                }
+                prop "id" {
+                    type "string"
+                }
+                prop "version" {
+                    type "string"
+                }
+                prop "draft" {
+                    type "boolean"
+                }
+            }
+        }
+    }
+
+    other-nodes-allowed #false
+}
