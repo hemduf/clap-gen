@@ -644,10 +644,7 @@ fn validate_note_name_references(
                 path,
                 source,
                 "note-name",
-                &format!(
-                    "note-name `{}` references missing note port target `{port}`",
-                    name.name
-                ),
+                &format!("note-name `{}` references missing note port target `{port}`", name.name),
                 "reference an existing note port ID",
             ));
         }
