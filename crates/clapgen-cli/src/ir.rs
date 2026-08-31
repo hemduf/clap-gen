@@ -3,8 +3,6 @@ use std::path::Path;
 
 use crate::metadata::ParsedMetadata;
 
-#[path = "reviewed/access.rs"]
-mod access;
 #[path = "reviewed/capabilities.rs"]
 mod capabilities;
 #[path = "reviewed/provenance.rs"]
@@ -13,7 +11,7 @@ mod provenance;
 mod reviewed;
 
 #[allow(unused_imports)]
-pub(crate) use access::{
+pub(crate) use reviewed::{
     AudioPortIr, Direction, ExtensionIr, FactoryIr, GuiApiIr, NoteNameIr, NotePortIr, ParameterIr,
     PluginIr, PresetFormatIr, PresetLocationIr, ProcessorIr, ResourceIr, StateFieldIr,
 };
@@ -34,7 +32,7 @@ pub(crate) struct CanonicalIr {
     pub(crate) stable_extensions: ExtensionSet,
     pub(crate) draft_extensions: ExtensionSet,
     semantic: reviewed::CanonicalIr,
-    typed: access::TypedIr,
+    typed: reviewed::TypedIr,
     dependencies: Vec<String>,
     sources: Vec<SourceEntry>,
 }
@@ -65,7 +63,7 @@ pub(crate) fn build_ir(
     capabilities::validate(&bundle.documents)?;
 
     let semantic = reviewed::build_ir(path, source, metadata)?;
-    let typed = access::build(&bundle)?;
+    let typed = reviewed::typed_ir(&semantic);
     let version = semantic.version;
     let stable_extensions = ExtensionSet(semantic.stable_extensions.len());
     let draft_extensions = ExtensionSet(semantic.draft_extensions.len());
