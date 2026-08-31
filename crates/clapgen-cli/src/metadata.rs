@@ -40,15 +40,24 @@ pub(crate) struct ParsedMetadata {
 }
 
 pub(crate) fn parse_metadata(path: &Path, source: &str) -> Result<ParsedMetadata, String> {
-    reject_legacy_input(path, source)?;
+    reject_yaml_input(path, source)?;
 
-    let document = KdlDocument::parse_v2(source).map_err(|error| {
-        format!(
-            "{}:1: KDL 2.0 parse error: {error}\nhint: fix the syntax and run `clapgen fmt {}`",
-            path.display(),
-            path.display()
-        )
-    })?;
+    let document = match KdlDocument::parse_v2(source) {
+        Ok(document) => document,
+        Err(error) => {
+            if contains_legacy_kdl_literal(source) {
+                return Err(format!(
+                    "{}:1: KDL 1-style literal detected\nhint: migrate KDL 1 literals to KDL 2.0 (`true` → `#true`, `false` → `#false`, `null` → `#null`)",
+                    path.display()
+                ));
+            }
+            return Err(format!(
+                "{}:1: KDL 2.0 parse error: {error}\nhint: fix the syntax and run `clapgen fmt {}`",
+                path.display(),
+                path.display()
+            ));
+        }
+    };
 
     validate_schema_marker(path, source, &document)?;
     let namespaces = collect_extension_namespaces(path, source, &document)?;
@@ -64,18 +73,11 @@ pub(crate) fn format_metadata(path: &Path, source: &str) -> Result<String, Strin
     Ok(parsed.document.to_string())
 }
 
-fn reject_legacy_input(path: &Path, source: &str) -> Result<(), String> {
+fn reject_yaml_input(path: &Path, source: &str) -> Result<(), String> {
     let extension = path.extension().and_then(|value| value.to_str());
     if matches!(extension, Some("yaml" | "yml")) || source.trim_start().starts_with("---") {
         return Err(format!(
             "{}:1: YAML metadata is not supported\nhint: migrate the manifest to canonical KDL 2.0 metadata",
-            path.display()
-        ));
-    }
-
-    if contains_legacy_kdl_literal(source) {
-        return Err(format!(
-            "{}:1: KDL 1-style literal detected\nhint: migrate KDL 1 literals to KDL 2.0 (`true` → `#true`, `false` → `#false`, `null` → `#null`)",
             path.display()
         ));
     }
@@ -442,6 +444,13 @@ acme.widget acme.mode="fast"
             .expect_err("KDL 1 style literal must fail");
         assert!(kdl1_error.contains("KDL 1"), "{kdl1_error}");
         assert!(kdl1_error.contains("KDL 2.0"), "{kdl1_error}");
+    }
+
+    #[test]
+    fn valid_kdl2_comments_and_strings_do_not_trigger_legacy_migration() {
+        let source = "clapgen schema=\"1.0.0\"\n// true false null are words in this comment\nplugin id=\"x\" name=\"true false null\" vendor=\"x\" version=\"1\"\n";
+        parse_metadata(Path::new("plugin.kdl"), source)
+            .expect("valid KDL 2.0 must parse before legacy-literal heuristics run");
     }
 
     #[test]
