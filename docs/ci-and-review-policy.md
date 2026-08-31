@@ -38,6 +38,11 @@ the base repository, so fork pull requests never execute a write-capable job.
 
 ## Auto-merge
 
+GitHub repository setting **Allow auto-merge** must be enabled before this
+workflow can request native auto-merge. The workflow checks the live repository
+setting first and fails with an explicit diagnostic instead of silently falling
+back to an unsafe direct merge.
+
 After a same-repository pull request receives an independent approval, the
 `Conditional auto-merge` workflow asks GitHub to enable native squash
 auto-merge. It does not merge by bypassing repository rules. GitHub keeps the
