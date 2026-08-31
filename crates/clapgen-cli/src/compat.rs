@@ -38,9 +38,7 @@ pub(crate) struct Report {
 
 impl Report {
     pub(crate) fn has_forbidden(&self) -> bool {
-        self.changes
-            .iter()
-            .any(|change| change.class == Class::Forbidden)
+        self.changes.iter().any(|change| change.class == Class::Forbidden)
     }
 
     pub(crate) fn text(&self) -> String {
@@ -50,12 +48,7 @@ impl Report {
         self.changes
             .iter()
             .map(|change| {
-                format!(
-                    "{} {}: {}",
-                    change.class.as_str(),
-                    change.subject,
-                    change.detail
-                )
+                format!("{} {}: {}", change.class.as_str(), change.subject, change.detail)
             })
             .collect::<Vec<_>>()
             .join("\n")
@@ -75,10 +68,7 @@ impl Report {
             })
             .collect::<Vec<_>>()
             .join(",");
-        format!(
-            "{{\"changes\":[{body}],\"forbidden\":{}}}",
-            self.has_forbidden()
-        )
+        format!("{{\"changes\":[{body}],\"forbidden\":{}}}", self.has_forbidden())
     }
 }
 
@@ -103,7 +93,6 @@ struct Port {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct StateField {
-    name: String,
     tag: Option<String>,
 }
 
@@ -160,19 +149,11 @@ pub(crate) fn compare(
         changes.push(Change {
             class: Class::Forbidden,
             subject: "plugin.id".to_owned(),
-            detail: format!(
-                "changed from `{}` to `{}`",
-                baseline.plugin_id, current.plugin_id
-            ),
+            detail: format!("changed from `{}` to `{}`", baseline.plugin_id, current.plugin_id),
         });
     }
 
-    compare_parameters(
-        &baseline.parameters,
-        &current.parameters,
-        &relation,
-        &mut changes,
-    );
+    compare_parameters(&baseline.parameters, &current.parameters, &relation, &mut changes);
     compare_ports(
         "audio-port",
         &["audio-port", "port"],
@@ -189,22 +170,11 @@ pub(crate) fn compare(
         &relation,
         &mut changes,
     );
-    compare_state(
-        &baseline.state_fields,
-        &current.state_fields,
-        &relation,
-        &mut changes,
-    );
-    compare_drafts(
-        &baseline.draft_extensions,
-        &current.draft_extensions,
-        &mut changes,
-    );
+    compare_state(&baseline.state_fields, &current.state_fields, &relation, &mut changes);
+    compare_drafts(&baseline.draft_extensions, &current.draft_extensions, &mut changes);
     validate_current_registry_coverage(&current, &relation, &mut changes);
 
-    changes.sort_by(|a, b| {
-        (&a.subject, a.class, &a.detail).cmp(&(&b.subject, b.class, &b.detail))
-    });
+    changes.sort_by(|a, b| (&a.subject, a.class, &a.detail).cmp(&(&b.subject, b.class, &b.detail)));
     Ok(Report { changes })
 }
 
@@ -399,9 +369,7 @@ fn compare_state(
 
     for (name, field) in current {
         let already_present = match field.tag.as_deref() {
-            Some(tag) => baseline
-                .values()
-                .any(|old| old.tag.as_deref() == Some(tag)),
+            Some(tag) => baseline.values().any(|old| old.tag.as_deref() == Some(tag)),
             None => baseline.contains_key(name) || relation.is_rename_target(KINDS, name),
         };
         if already_present {
@@ -426,9 +394,7 @@ fn compare_drafts(
             Some(current_version) => changes.push(Change {
                 class: Class::Forbidden,
                 subject: format!("draft.{id}"),
-                detail: format!(
-                    "ABI version changed from `{version}` to `{current_version}`"
-                ),
+                detail: format!("ABI version changed from `{version}` to `{current_version}`"),
             }),
             None => changes.push(Change {
                 class: Class::Forbidden,
@@ -458,10 +424,7 @@ fn compare_id_registries(
     let current_path = sibling_registry(current_manifest);
     let baseline = read_entries(&baseline_path)?;
     let current = read_entries(&current_path)?;
-    let mut relation = RegistryRelation {
-        renames: Vec::new(),
-        current: current.clone(),
-    };
+    let mut relation = RegistryRelation { renames: Vec::new(), current: current.clone() };
 
     let Some(baseline) = baseline else {
         if current.is_some() {
@@ -482,14 +445,9 @@ fn compare_id_registries(
         return Ok(relation);
     };
 
-    let old_by_value = baseline
-        .iter()
-        .map(|entry| (entry.value, entry))
-        .collect::<BTreeMap<_, _>>();
-    let new_by_value = current
-        .iter()
-        .map(|entry| (entry.value, entry))
-        .collect::<BTreeMap<_, _>>();
+    let old_by_value =
+        baseline.iter().map(|entry| (entry.value, entry)).collect::<BTreeMap<_, _>>();
+    let new_by_value = current.iter().map(|entry| (entry.value, entry)).collect::<BTreeMap<_, _>>();
     let old_by_symbol = baseline
         .iter()
         .map(|entry| ((entry.kind.as_str(), entry.key.as_str()), entry.value))
@@ -516,10 +474,7 @@ fn compare_id_registries(
             changes.push(Change {
                 class: Class::Forbidden,
                 subject: format!("clap-id.{value}"),
-                detail: format!(
-                    "released numeric ID for `{}:{}` disappeared",
-                    old.kind, old.key
-                ),
+                detail: format!("released numeric ID for `{}:{}` disappeared", old.kind, old.key),
             });
             continue;
         };
@@ -611,9 +566,10 @@ fn require_active_id(
     label: &str,
     changes: &mut Vec<Change>,
 ) {
-    if entries.iter().any(|entry| {
-        kinds.contains(&entry.kind.as_str()) && entry.key == key && !entry.tombstone
-    }) {
+    if entries
+        .iter()
+        .any(|entry| kinds.contains(&entry.kind.as_str()) && entry.key == key && !entry.tombstone)
+    {
         return;
     }
     changes.push(Change {
@@ -633,37 +589,24 @@ fn resolve_current<'a, T>(
         return Some((key.as_str(), value));
     }
     let renamed = relation.renamed_symbol(registry_kinds, baseline_id)?;
-    current
-        .get_key_value(renamed)
-        .map(|(key, value)| (key.as_str(), value))
+    current.get_key_value(renamed).map(|(key, value)| (key.as_str(), value))
 }
 
 fn sibling_registry(manifest: &Path) -> PathBuf {
-    manifest
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("plugin.ids.kdl")
+    manifest.parent().unwrap_or_else(|| Path::new(".")).join("plugin.ids.kdl")
 }
 
 fn snapshot(ir: &CanonicalIr) -> Result<Snapshot, String> {
     let source = serialize_ir_kdl(ir);
     let document = KdlDocument::parse_v2(&source)
         .map_err(|error| format!("internal canonical IR parse failed: {error}"))?;
-    let plugin = document
-        .get("plugin")
-        .ok_or_else(|| "internal IR is missing plugin".to_owned())?;
+    let plugin =
+        document.get("plugin").ok_or_else(|| "internal IR is missing plugin".to_owned())?;
     let plugin_id = required_string(plugin, "id")?;
-    let mut result = Snapshot {
-        plugin_id,
-        ..Snapshot::default()
-    };
+    let mut result = Snapshot { plugin_id, ..Snapshot::default() };
 
     if let Some(parameters) = document.get("parameters").and_then(KdlNode::children) {
-        for node in parameters
-            .nodes()
-            .iter()
-            .filter(|node| node.name().value() == "param")
-        {
+        for node in parameters.nodes().iter().filter(|node| node.name().value() == "param") {
             let id = required_string(node, "id")?;
             result.parameters.insert(
                 id,
@@ -676,24 +619,12 @@ fn snapshot(ir: &CanonicalIr) -> Result<Snapshot, String> {
             );
         }
     }
-    collect_ports(
-        document.get("audio-ports"),
-        false,
-        &mut result.audio_ports,
-    )?;
-    collect_ports(
-        document.get("note-ports"),
-        true,
-        &mut result.note_ports,
-    )?;
+    collect_ports(document.get("audio-ports"), false, &mut result.audio_ports)?;
+    collect_ports(document.get("note-ports"), true, &mut result.note_ports)?;
 
     if let Some(state) = document.get("state").and_then(KdlNode::children) {
         let mut persistent_tags = BTreeMap::new();
-        for node in state
-            .nodes()
-            .iter()
-            .filter(|node| node.name().value() == "field")
-        {
+        for node in state.nodes().iter().filter(|node| node.name().value() == "field") {
             let name = first_string(node)
                 .ok_or_else(|| "internal state field missing name".to_owned())?
                 .to_owned();
@@ -705,22 +636,14 @@ fn snapshot(ir: &CanonicalIr) -> Result<Snapshot, String> {
                     "duplicate persistent state tag `{tag}` used by `{previous}` and `{name}`"
                 ));
             }
-            result
-                .state_fields
-                .insert(name.clone(), StateField { name, tag });
+            result.state_fields.insert(name, StateField { tag });
         }
     }
     if let Some(extensions) = document.get("extensions").and_then(KdlNode::children) {
-        for node in extensions
-            .nodes()
-            .iter()
-            .filter(|node| node.name().value() == "draft")
-        {
+        for node in extensions.nodes().iter().filter(|node| node.name().value() == "draft") {
             let id = first_string(node)
                 .ok_or_else(|| "internal draft extension missing id".to_owned())?;
-            result
-                .draft_extensions
-                .insert(id.to_owned(), required_string(node, "version")?);
+            result.draft_extensions.insert(id.to_owned(), required_string(node, "version")?);
         }
     }
     Ok(result)
@@ -734,10 +657,8 @@ fn collect_ports(
     let Some(children) = root.and_then(KdlNode::children) else {
         return Ok(());
     };
-    for node in children
-        .nodes()
-        .iter()
-        .filter(|node| matches!(node.name().value(), "input" | "output"))
+    for node in
+        children.nodes().iter().filter(|node| matches!(node.name().value(), "input" | "output"))
     {
         let id = required_string(node, "id")?;
         output.insert(
@@ -745,17 +666,21 @@ fn collect_ports(
             Port {
                 direction: node.name().value().to_owned(),
                 channels: (!note).then(|| value_prop(node, "channels")).transpose()?,
-                port_type: (!note)
-                    .then(|| string_prop(node, "type").map(str::to_owned))
-                    .flatten(),
+                port_type: if note {
+                    None
+                } else {
+                    string_prop(node, "type").map(str::to_owned)
+                },
                 flags: if note {
                     String::new()
                 } else {
                     string_prop(node, "flags").unwrap_or_default().to_owned()
                 },
-                in_place_pair: (!note)
-                    .then(|| string_prop(node, "in-place-pair").map(str::to_owned))
-                    .flatten(),
+                in_place_pair: if note {
+                    None
+                } else {
+                    string_prop(node, "in-place-pair").map(str::to_owned)
+                },
                 dialects: note
                     .then(|| string_prop(node, "dialects").unwrap_or_default().to_owned()),
                 preferred: note
@@ -790,13 +715,8 @@ fn value_prop(node: &KdlNode, key: &str) -> Result<String, String> {
     match prop(node, key) {
         Some(KdlValue::Integer(value)) => Ok(value.to_string()),
         Some(KdlValue::Float(value)) => Ok(value.to_string()),
-        Some(value) => Err(format!(
-            "internal IR `{key}` has unexpected value `{value:?}`"
-        )),
-        None => Err(format!(
-            "internal IR node `{}` missing `{key}`",
-            node.name().value()
-        )),
+        Some(value) => Err(format!("internal IR `{key}` has unexpected value `{value:?}`")),
+        None => Err(format!("internal IR node `{}` missing `{key}`", node.name().value())),
     }
 }
 
@@ -848,10 +768,7 @@ mod tests {
     use super::{Class, compare, json_string};
 
     fn temp_dir() -> PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).expect("clock").as_nanos();
         env::temp_dir().join(format!("clapgen-compat-{}-{nonce}", std::process::id()))
     }
 
@@ -885,25 +802,13 @@ mod tests {
             &new_dir,
             "ids version=1 next=2 { entry kind=\"parameter\" key=\"level\" value=1 tombstone=#false }\n",
         );
-        let baseline = ir(&manifest(
-            "param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5",
-            "",
-            "",
-            "",
-        ));
-        let current = ir(&manifest(
-            "param \"Level\" id=\"level\" min=0.0 max=1.0 default=0.5",
-            "",
-            "",
-            "",
-        ));
-        let report = compare(
-            &baseline,
-            &current,
-            &old_dir.join("plugin.kdl"),
-            &new_dir.join("plugin.kdl"),
-        )
-        .expect("compare");
+        let baseline =
+            ir(&manifest("param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5", "", "", ""));
+        let current =
+            ir(&manifest("param \"Level\" id=\"level\" min=0.0 max=1.0 default=0.5", "", "", ""));
+        let report =
+            compare(&baseline, &current, &old_dir.join("plugin.kdl"), &new_dir.join("plugin.kdl"))
+                .expect("compare");
         assert!(!report.has_forbidden(), "{}", report.text());
         assert!(report.text().contains("numeric CLAP ID"), "{}", report.text());
         assert!(report.text().contains("gain"), "{}", report.text());
@@ -933,11 +838,7 @@ mod tests {
         )
         .expect("compare");
         assert!(report.has_forbidden());
-        assert!(
-            report.text().contains("forbidden audio-port.out"),
-            "{}",
-            report.text()
-        );
+        assert!(report.text().contains("forbidden audio-port.out"), "{}", report.text());
     }
 
     #[test]
@@ -959,18 +860,8 @@ mod tests {
 
     #[test]
     fn changing_a_persistent_state_tag_is_forbidden() {
-        let baseline = ir(&manifest(
-            "",
-            "",
-            "field \"value\" type=\"string\" tag=\"state-1\"",
-            "",
-        ));
-        let current = ir(&manifest(
-            "",
-            "",
-            "field \"value\" type=\"string\" tag=\"state-2\"",
-            "",
-        ));
+        let baseline = ir(&manifest("", "", "field \"value\" type=\"string\" tag=\"state-1\"", ""));
+        let current = ir(&manifest("", "", "field \"value\" type=\"string\" tag=\"state-2\"", ""));
         let report = compare(
             &baseline,
             &current,
@@ -995,25 +886,17 @@ mod tests {
             &new_dir,
             "ids version=1 next=2 { entry kind=\"parameter\" key=\"filter-cutoff\" value=1 tombstone=#false }\n",
         );
-        let baseline = ir(&manifest(
-            "param \"Cutoff\" id=\"cutoff\" min=0.0 max=1.0 default=0.5",
-            "",
-            "",
-            "",
-        ));
+        let baseline =
+            ir(&manifest("param \"Cutoff\" id=\"cutoff\" min=0.0 max=1.0 default=0.5", "", "", ""));
         let current = ir(&manifest(
             "param \"Cutoff\" id=\"filter-cutoff\" min=0.0 max=1.0 default=0.5",
             "",
             "",
             "",
         ));
-        let report = compare(
-            &baseline,
-            &current,
-            &old_dir.join("plugin.kdl"),
-            &new_dir.join("plugin.kdl"),
-        )
-        .expect("compare");
+        let report =
+            compare(&baseline, &current, &old_dir.join("plugin.kdl"), &new_dir.join("plugin.kdl"))
+                .expect("compare");
         assert!(!report.has_forbidden(), "{}", report.text());
         assert!(report.text().contains("clap-id.1"), "{}", report.text());
 
@@ -1021,19 +904,11 @@ mod tests {
             &new_dir,
             "ids version=1 next=3 { entry kind=\"parameter\" key=\"cutoff\" value=2 tombstone=#false }\n",
         );
-        let changed = ir(&manifest(
-            "param \"Cutoff\" id=\"cutoff\" min=0.0 max=1.0 default=0.5",
-            "",
-            "",
-            "",
-        ));
-        let report = compare(
-            &baseline,
-            &changed,
-            &old_dir.join("plugin.kdl"),
-            &new_dir.join("plugin.kdl"),
-        )
-        .expect("compare changed");
+        let changed =
+            ir(&manifest("param \"Cutoff\" id=\"cutoff\" min=0.0 max=1.0 default=0.5", "", "", ""));
+        let report =
+            compare(&baseline, &changed, &old_dir.join("plugin.kdl"), &new_dir.join("plugin.kdl"))
+                .expect("compare changed");
         assert!(report.has_forbidden());
         assert!(report.text().contains("numeric ID changed"), "{}", report.text());
         let _ = fs::remove_dir_all(directory);
@@ -1077,25 +952,17 @@ mod tests {
             &new_dir,
             "ids version=1 next=2 { entry kind=\"parameter\" key=\"gain\" value=1 tombstone=#false }\n",
         );
-        let baseline = ir(&manifest(
-            "param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5",
-            "",
-            "",
-            "",
-        ));
+        let baseline =
+            ir(&manifest("param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5", "", "", ""));
         let current = ir(&manifest(
             "param \"Gain\" id=\"gain\" min=0.0 max=1.0 default=0.5; param \"Mix\" id=\"mix\" min=0.0 max=1.0 default=0.5",
             "",
             "",
             "",
         ));
-        let report = compare(
-            &baseline,
-            &current,
-            &old_dir.join("plugin.kdl"),
-            &new_dir.join("plugin.kdl"),
-        )
-        .expect("compare");
+        let report =
+            compare(&baseline, &current, &old_dir.join("plugin.kdl"), &new_dir.join("plugin.kdl"))
+                .expect("compare");
         assert!(report.has_forbidden());
         assert!(report.text().contains("clap-id.parameter:mix"), "{}", report.text());
         let _ = fs::remove_dir_all(directory);
@@ -1124,12 +991,7 @@ mod tests {
         .expect("compare");
         assert!(report.text().contains("sensitive parameter.gain.range"));
         assert!(report.text().contains("forbidden audio-port.out"));
-        assert!(
-            report
-                .changes
-                .iter()
-                .any(|change| change.class == Class::Forbidden)
-        );
+        assert!(report.changes.iter().any(|change| change.class == Class::Forbidden));
         let first = report.json();
         let second = report.json();
         assert_eq!(first, second);
@@ -1137,6 +999,9 @@ mod tests {
 
     #[test]
     fn json_report_escapes_all_ascii_control_characters() {
-        assert_eq!("\"a\\u0001b\\b\\f\\n\\r\\t\"", json_string("a\u{1}b\u{8}\u{c}\n\r\t"));
+        assert_eq!(
+            "\"a\\u0001b\\b\\f\\n\\r\\t\"",
+            json_string("a\u{1}b\u{8}\u{c}\n\r\t")
+        );
     }
 }
