@@ -36,6 +36,7 @@ class CiPolicyTest(unittest.TestCase):
             "-fsanitize=address,undefined",
         ):
             self.assertIn(command, workflow)
+        self.assertIn(r"C:\Program Files\Cppcheck\cppcheck.exe", workflow)
 
     def test_ci_has_hygiene_cache_and_failure_artifact_retention(self) -> None:
         workflow = read(".github/workflows/ci.yml")
