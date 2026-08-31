@@ -148,7 +148,8 @@ pub(crate) struct TypedIr {
 }
 
 pub(crate) fn build(bundle: &SourceBundle) -> Result<TypedIr, String> {
-    let root = bundle.documents.first().ok_or_else(|| "canonical IR has no root metadata".to_owned())?;
+    let root =
+        bundle.documents.first().ok_or_else(|| "canonical IR has no root metadata".to_owned())?;
     let plugin_node = root
         .metadata
         .document
@@ -402,7 +403,8 @@ fn required_number(node: &KdlNode, key: &str, subject: &str) -> Result<f64, Stri
 }
 
 fn required_integer(node: &KdlNode, key: &str, subject: &str) -> Result<i128, String> {
-    integer_prop(node, key).ok_or_else(|| format!("`{subject}` is missing integer property `{key}`"))
+    integer_prop(node, key)
+        .ok_or_else(|| format!("`{subject}` is missing integer property `{key}`"))
 }
 
 fn display_name(node: &KdlNode, id: &str) -> String {
@@ -412,11 +414,7 @@ fn display_name(node: &KdlNode, id: &str) -> String {
 fn named_list(node: &KdlNode, key: &str) -> Vec<String> {
     let mut values = string_prop(node, key)
         .map(|value| {
-            value
-                .split(',')
-                .map(token)
-                .filter(|value| !value.is_empty())
-                .collect::<Vec<_>>()
+            value.split(',').map(token).filter(|value| !value.is_empty()).collect::<Vec<_>>()
         })
         .unwrap_or_default();
     values.sort();
@@ -491,10 +489,18 @@ fn value_text(value: &KdlValue) -> String {
         KdlValue::String(value) => quote(value),
         KdlValue::Integer(value) => value.to_string(),
         KdlValue::Float(value) => {
-            if *value == 0.0 { "0".to_owned() } else { value.to_string() }
+            if *value == 0.0 {
+                "0".to_owned()
+            } else {
+                value.to_string()
+            }
         }
         KdlValue::Bool(value) => {
-            if *value { "#true".to_owned() } else { "#false".to_owned() }
+            if *value {
+                "#true".to_owned()
+            } else {
+                "#false".to_owned()
+            }
         }
         KdlValue::Null => "#null".to_owned(),
     }
