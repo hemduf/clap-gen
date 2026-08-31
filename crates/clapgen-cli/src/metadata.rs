@@ -150,9 +150,9 @@ fn collect_extension_namespaces(
             ));
         };
         if namespace.is_empty()
-            || !namespace
-                .chars()
-                .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+            || !namespace.chars().all(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
+            })
         {
             return Err(node_diagnostic(
                 path,
@@ -275,34 +275,17 @@ fn allowed_properties(parent: Option<&str>, node: &str) -> &'static [&'static st
     match (parent, node) {
         (None, "clapgen") => &["schema"],
         (None, "import") => &["optional"],
-        (None, "plugin") => &[
-            "id",
-            "name",
-            "vendor",
-            "version",
-            "url",
-            "manual-url",
-            "support-url",
-            "description",
-        ],
+        (None, "plugin") => {
+            &["id", "name", "vendor", "version", "url", "manual-url", "support-url", "description"]
+        }
         (None, "processor") => &["class", "features"],
-        (Some("parameters"), "param") => &[
-            "id", "name", "min", "max", "default", "flags", "unit", "steps",
-        ],
-        (Some("audio-ports"), "input" | "output") => &[
-            "id",
-            "name",
-            "channels",
-            "type",
-            "flags",
-            "in-place-pair",
-        ],
-        (Some("note-ports"), "input" | "output") => &[
-            "id",
-            "name",
-            "dialects",
-            "preferred",
-        ],
+        (Some("parameters"), "param") => {
+            &["id", "name", "min", "max", "default", "flags", "unit", "steps"]
+        }
+        (Some("audio-ports"), "input" | "output") => {
+            &["id", "name", "channels", "type", "flags", "in-place-pair"]
+        }
+        (Some("note-ports"), "input" | "output") => &["id", "name", "dialects", "preferred"],
         (Some("note-ports"), "note-name") => &["key", "channel", "port"],
         (Some("state"), "field") => &["name", "type", "default", "tag"],
         (Some("gui"), "api") => &["name", "floating", "embedded"],
@@ -347,18 +330,9 @@ fn first_string_argument(node: &KdlNode) -> Option<&str> {
     })
 }
 
-fn node_diagnostic(
-    path: &Path,
-    source: &str,
-    node: &str,
-    message: &str,
-    hint: &str,
-) -> String {
+fn node_diagnostic(path: &Path, source: &str, node: &str, message: &str, hint: &str) -> String {
     let line = find_node_line(source, node);
-    format!(
-        "{}:{line}: node `{node}`: {message}\nhint: {hint}",
-        path.display()
-    )
+    format!("{}:{line}: node `{node}`: {message}\nhint: {hint}", path.display())
 }
 
 fn find_node_line(source: &str, node: &str) -> usize {
@@ -367,21 +341,27 @@ fn find_node_line(source: &str, node: &str) -> usize {
         .enumerate()
         .find_map(|(index, line)| {
             let line = line.trim_start();
-            let unquoted = line
-                .strip_prefix(node)
-                .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{'));
             let quoted_name = format!("\"{node}\"");
-            let quoted = line.strip_prefix(&quoted_name).is_some_and(|rest| {
-                rest.is_empty() || rest.starts_with(char::is_whitespace) || rest.starts_with('{')
-            });
+            let unquoted = line.strip_prefix(node).is_some_and(valid_node_boundary);
+            let quoted = line
+                .strip_prefix(&quoted_name)
+                .is_some_and(valid_node_boundary);
             (unquoted || quoted).then_some(index + 1)
         })
         .unwrap_or(1)
 }
 
+fn valid_node_boundary(rest: &str) -> bool {
+    rest.is_empty()
+        || rest.starts_with('{')
+        || rest.chars().next().is_some_and(char::is_whitespace)
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
+
+    use kdl::KdlDocument;
 
     use super::{format_metadata, parse_metadata};
 
@@ -410,7 +390,8 @@ acme.widget acme.mode="fast"
 
     #[test]
     fn parses_canonical_metadata_and_tracks_imports() {
-        let parsed = parse_metadata(Path::new("plugin.kdl"), VALID).expect("valid KDL should parse");
+        let parsed =
+            parse_metadata(Path::new("plugin.kdl"), VALID).expect("valid KDL should parse");
         assert_eq!(vec![PathBuf::from("shared/common.kdl")], parsed.imports);
         assert!(parsed.document.get("plugin").is_some());
         assert!(parsed.document.get("processor").is_some());
@@ -420,7 +401,8 @@ acme.widget acme.mode="fast"
     fn formatting_preserves_comments_and_slashdash_and_is_idempotent() {
         let source = VALID.replace("    param", "        param");
         let once = format_metadata(Path::new("plugin.kdl"), &source).expect("format should work");
-        let twice = format_metadata(Path::new("plugin.kdl"), &once).expect("second format should work");
+        let twice =
+            format_metadata(Path::new("plugin.kdl"), &once).expect("second format should work");
 
         assert_eq!(once, twice);
         assert!(once.contains("// user comment"));
@@ -430,7 +412,8 @@ acme.widget acme.mode="fast"
     #[test]
     fn rejects_unknown_nodes_with_stable_location_and_hint() {
         let source = "clapgen schema=\"1.0.0\"\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\"\nmystery value=1\n";
-        let error = parse_metadata(Path::new("bad/plugin.kdl"), source).expect_err("unknown node must fail");
+        let error = parse_metadata(Path::new("bad/plugin.kdl"), source)
+            .expect_err("unknown node must fail");
 
         assert!(error.contains("bad/plugin.kdl:3"), "{error}");
         assert!(error.contains("node `mystery`"), "{error}");
@@ -441,22 +424,26 @@ acme.widget acme.mode="fast"
     #[test]
     fn rejects_unknown_properties_unless_namespaced() {
         let source = "clapgen schema=\"1.0.0\"\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\" surprise=1\n";
-        let error = parse_metadata(Path::new("plugin.kdl"), source).expect_err("unknown property must fail");
+        let error = parse_metadata(Path::new("plugin.kdl"), source)
+            .expect_err("unknown property must fail");
         assert!(error.contains("property `surprise`"), "{error}");
 
         let namespaced = "clapgen schema=\"1.0.0\"\nextensions { namespace \"acme\" }\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\" acme.mode=\"fast\"\nacme.extra enabled=#true\n";
-        parse_metadata(Path::new("plugin.kdl"), namespaced).expect("declared extension namespace should be accepted");
+        parse_metadata(Path::new("plugin.kdl"), namespaced)
+            .expect("declared extension namespace should be accepted");
     }
 
     #[test]
     fn rejects_yaml_and_kdl1_with_migration_guidance() {
         let yaml = "plugin:\n  id: com.example.gain\n";
-        let yaml_error = parse_metadata(Path::new("plugin.yaml"), yaml).expect_err("YAML must fail");
+        let yaml_error =
+            parse_metadata(Path::new("plugin.yaml"), yaml).expect_err("YAML must fail");
         assert!(yaml_error.contains("YAML"), "{yaml_error}");
         assert!(yaml_error.contains("KDL 2.0"), "{yaml_error}");
 
         let kdl1 = "clapgen schema=\"1.0.0\"\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\" enabled=true\n";
-        let kdl1_error = parse_metadata(Path::new("plugin.kdl"), kdl1).expect_err("KDL 1 style literal must fail");
+        let kdl1_error = parse_metadata(Path::new("plugin.kdl"), kdl1)
+            .expect_err("KDL 1 style literal must fail");
         assert!(kdl1_error.contains("KDL 1"), "{kdl1_error}");
         assert!(kdl1_error.contains("KDL 2.0"), "{kdl1_error}");
     }
@@ -464,11 +451,20 @@ acme.widget acme.mode="fast"
     #[test]
     fn rejects_missing_or_future_schema_markers() {
         let missing = "plugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\"\n";
-        let error = parse_metadata(Path::new("plugin.kdl"), missing).expect_err("schema marker required");
+        let error =
+            parse_metadata(Path::new("plugin.kdl"), missing).expect_err("schema marker required");
         assert!(error.contains("missing `clapgen` schema marker"), "{error}");
 
-        let future = "clapgen schema=\"2.0.0\"\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\"\n";
-        let error = parse_metadata(Path::new("plugin.kdl"), future).expect_err("unknown schema must fail");
+        let future =
+            "clapgen schema=\"2.0.0\"\nplugin id=\"x\" name=\"x\" vendor=\"x\" version=\"1\"\n";
+        let error =
+            parse_metadata(Path::new("plugin.kdl"), future).expect_err("unknown schema must fail");
         assert!(error.contains("unsupported clap-gen metadata schema"), "{error}");
+    }
+
+    #[test]
+    fn published_schema_is_valid_kdl_2() {
+        let schema = include_str!("../../../schemas/clapgen-1.0.0.kdl");
+        KdlDocument::parse_v2(schema).expect("published schema must parse as KDL 2.0");
     }
 }
