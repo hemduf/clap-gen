@@ -205,10 +205,7 @@ fn audio_ports(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> Ve
             channels: value.channels,
             port_type: value.port_type.clone(),
             flags: value.flags.clone(),
-            in_place_pair: value
-                .in_place_pair
-                .as_deref()
-                .map(|id| restore_id(id, replacements)),
+            in_place_pair: value.in_place_pair.as_deref().map(|id| restore_id(id, replacements)),
         })
         .collect()
 }
@@ -301,7 +298,10 @@ fn factories(ir: &super::CanonicalIr) -> Vec<FactoryIr> {
         .collect()
 }
 
-fn extensions(values: &[super::ExtensionIr], replacements: &[(String, String)]) -> Vec<ExtensionIr> {
+fn extensions(
+    values: &[super::ExtensionIr],
+    replacements: &[(String, String)],
+) -> Vec<ExtensionIr> {
     values.iter().map(|value| extension(value, replacements)).collect()
 }
 
