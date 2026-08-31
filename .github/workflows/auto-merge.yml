@@ -1,0 +1,40 @@
+name: Conditional auto-merge
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  enable:
+    name: Enable native auto-merge
+    if: >-
+      github.event.review.state == 'approved' &&
+      github.event.review.user.login != github.event.pull_request.user.login &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify repository auto-merge is enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          enabled="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.allow_auto_merge')"
+          if [ "$enabled" != "true" ]; then
+            echo "::error::Repository auto-merge is disabled in GitHub settings"
+            exit 1
+          fi
+
+      - name: Enable squash auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"

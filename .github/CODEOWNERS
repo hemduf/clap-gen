@@ -1,0 +1,4 @@
+# Repository-wide review ownership. Bot-authored pull requests must be reviewed
+# by a distinct human or independent reviewer identity; authors never approve
+# their own changes.
+* @hemduf
