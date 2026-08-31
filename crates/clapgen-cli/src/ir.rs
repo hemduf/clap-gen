@@ -637,19 +637,19 @@ fn validate_note_name_references(
 ) -> Result<(), String> {
     let ids = ports.iter().map(|port| port.id.as_str()).collect::<BTreeSet<_>>();
     for name in names {
-        if let Some(port) = name.port.as_deref() {
-            if !ids.contains(port) {
-                return Err(diagnostic(
-                    path,
-                    source,
-                    "note-name",
-                    &format!(
-                        "note-name `{}` references missing note port target `{port}`",
-                        name.name
-                    ),
-                    "reference an existing note port ID",
-                ));
-            }
+        if let Some(port) = name.port.as_deref()
+            && !ids.contains(port)
+        {
+            return Err(diagnostic(
+                path,
+                source,
+                "note-name",
+                &format!(
+                    "note-name `{}` references missing note port target `{port}`",
+                    name.name
+                ),
+                "reference an existing note port ID",
+            ));
         }
     }
     Ok(())
