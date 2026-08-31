@@ -343,18 +343,14 @@ fn find_node_line(source: &str, node: &str) -> usize {
             let line = line.trim_start();
             let quoted_name = format!("\"{node}\"");
             let unquoted = line.strip_prefix(node).is_some_and(valid_node_boundary);
-            let quoted = line
-                .strip_prefix(&quoted_name)
-                .is_some_and(valid_node_boundary);
+            let quoted = line.strip_prefix(&quoted_name).is_some_and(valid_node_boundary);
             (unquoted || quoted).then_some(index + 1)
         })
         .unwrap_or(1)
 }
 
 fn valid_node_boundary(rest: &str) -> bool {
-    rest.is_empty()
-        || rest.starts_with('{')
-        || rest.chars().next().is_some_and(char::is_whitespace)
+    rest.is_empty() || rest.starts_with('{') || rest.chars().next().is_some_and(char::is_whitespace)
 }
 
 #[cfg(test)]
