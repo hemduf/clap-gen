@@ -144,134 +144,165 @@ pub(crate) struct TypedIr {
 
 pub(crate) fn build(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> TypedIr {
     TypedIr {
-        plugin: PluginIr {
-            id: ir.plugin.id.clone(),
-            name: ir.plugin.name.clone(),
-            vendor: ir.plugin.vendor.clone(),
-            version: ir.plugin.version.clone(),
-            url: ir.plugin.url.clone(),
-            manual_url: ir.plugin.manual_url.clone(),
-            support_url: ir.plugin.support_url.clone(),
-            description: ir.plugin.description.clone(),
-            features: ir.plugin.features.clone(),
-        },
-        processor: ProcessorIr {
-            class: ir.processor.class.clone(),
-            features: ir.processor.features.clone(),
-        },
-        parameters: ir
-            .parameters
-            .iter()
-            .map(|value| ParameterIr {
-                id: value.id.clone(),
-                name: value.name.clone(),
-                min: value.min,
-                max: value.max,
-                default: value.default,
-                flags: value.flags.clone(),
-                unit: value.unit.clone(),
-                steps: value.steps,
-            })
-            .collect(),
-        audio_ports: ir
-            .audio_ports
-            .iter()
-            .map(|value| AudioPortIr {
-                id: restore_id(&value.id, replacements),
-                name: value.name.clone(),
-                direction: direction(value.direction),
-                channels: value.channels,
-                port_type: value.port_type.clone(),
-                flags: value.flags.clone(),
-                in_place_pair: value
-                    .in_place_pair
-                    .as_deref()
-                    .map(|id| restore_id(id, replacements)),
-            })
-            .collect(),
-        note_ports: ir
-            .note_ports
-            .iter()
-            .map(|value| NotePortIr {
-                id: restore_id(&value.id, replacements),
-                name: value.name.clone(),
-                direction: direction(value.direction),
-                dialects: value.dialects.clone(),
-                preferred: value.preferred.clone(),
-            })
-            .collect(),
-        note_names: ir
-            .note_names
-            .iter()
-            .map(|value| NoteNameIr {
-                name: value.name.clone(),
-                key: value.key,
-                channel: value.channel,
-                port: value.port.as_deref().map(|id| restore_id(id, replacements)),
-            })
-            .collect(),
-        state_fields: ir
-            .state_fields
-            .iter()
-            .map(|value| StateFieldIr {
-                name: value.name.clone(),
-                field_type: value.field_type.clone(),
-                default: value.default.clone(),
-                tag: value.tag.clone(),
-            })
-            .collect(),
-        gui_apis: ir
-            .gui
-            .apis
-            .iter()
-            .map(|value| GuiApiIr {
-                name: value.name.clone(),
-                floating: value.floating,
-                embedded: value.embedded,
-            })
-            .collect(),
-        resources: ir
-            .gui
-            .resources
-            .iter()
-            .map(|value| ResourceIr { path: value.path.clone(), mime: value.mime.clone() })
-            .collect(),
-        preset_locations: ir
-            .presets
-            .locations
-            .iter()
-            .map(|value| PresetLocationIr {
-                name: value.name.clone(),
-                kind: value.kind.clone(),
-                path: value.path.clone(),
-            })
-            .collect(),
-        preset_formats: ir
-            .presets
-            .formats
-            .iter()
-            .map(|value| PresetFormatIr {
-                name: value.name.clone(),
-                extension: value.extension.clone(),
-                mime: value.mime.clone(),
-            })
-            .collect(),
-        factories: ir
-            .factories
-            .iter()
-            .map(|value| FactoryIr { id: value.id.clone(), kind: value.kind.clone() })
-            .collect(),
-        stable_extensions: ir
-            .stable_extensions
-            .iter()
-            .map(|value| extension(value, replacements))
-            .collect(),
-        draft_extensions: ir
-            .draft_extensions
-            .iter()
-            .map(|value| extension(value, replacements))
-            .collect(),
+        plugin: plugin(ir),
+        processor: processor(ir),
+        parameters: parameters(ir),
+        audio_ports: audio_ports(ir, replacements),
+        note_ports: note_ports(ir, replacements),
+        note_names: note_names(ir, replacements),
+        state_fields: state_fields(ir),
+        gui_apis: gui_apis(ir),
+        resources: resources(ir),
+        preset_locations: preset_locations(ir),
+        preset_formats: preset_formats(ir),
+        factories: factories(ir),
+        stable_extensions: extensions(&ir.stable_extensions, replacements),
+        draft_extensions: extensions(&ir.draft_extensions, replacements),
     }
+}
+
+fn plugin(ir: &super::CanonicalIr) -> PluginIr {
+    PluginIr {
+        id: ir.plugin.id.clone(),
+        name: ir.plugin.name.clone(),
+        vendor: ir.plugin.vendor.clone(),
+        version: ir.plugin.version.clone(),
+        url: ir.plugin.url.clone(),
+        manual_url: ir.plugin.manual_url.clone(),
+        support_url: ir.plugin.support_url.clone(),
+        description: ir.plugin.description.clone(),
+        features: ir.plugin.features.clone(),
+    }
+}
+
+fn processor(ir: &super::CanonicalIr) -> ProcessorIr {
+    ProcessorIr { class: ir.processor.class.clone(), features: ir.processor.features.clone() }
+}
+
+fn parameters(ir: &super::CanonicalIr) -> Vec<ParameterIr> {
+    ir.parameters
+        .iter()
+        .map(|value| ParameterIr {
+            id: value.id.clone(),
+            name: value.name.clone(),
+            min: value.min,
+            max: value.max,
+            default: value.default,
+            flags: value.flags.clone(),
+            unit: value.unit.clone(),
+            steps: value.steps,
+        })
+        .collect()
+}
+
+fn audio_ports(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> Vec<AudioPortIr> {
+    ir.audio_ports
+        .iter()
+        .map(|value| AudioPortIr {
+            id: restore_id(&value.id, replacements),
+            name: value.name.clone(),
+            direction: direction(value.direction),
+            channels: value.channels,
+            port_type: value.port_type.clone(),
+            flags: value.flags.clone(),
+            in_place_pair: value
+                .in_place_pair
+                .as_deref()
+                .map(|id| restore_id(id, replacements)),
+        })
+        .collect()
+}
+
+fn note_ports(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> Vec<NotePortIr> {
+    ir.note_ports
+        .iter()
+        .map(|value| NotePortIr {
+            id: restore_id(&value.id, replacements),
+            name: value.name.clone(),
+            direction: direction(value.direction),
+            dialects: value.dialects.clone(),
+            preferred: value.preferred.clone(),
+        })
+        .collect()
+}
+
+fn note_names(ir: &super::CanonicalIr, replacements: &[(String, String)]) -> Vec<NoteNameIr> {
+    ir.note_names
+        .iter()
+        .map(|value| NoteNameIr {
+            name: value.name.clone(),
+            key: value.key,
+            channel: value.channel,
+            port: value.port.as_deref().map(|id| restore_id(id, replacements)),
+        })
+        .collect()
+}
+
+fn state_fields(ir: &super::CanonicalIr) -> Vec<StateFieldIr> {
+    ir.state_fields
+        .iter()
+        .map(|value| StateFieldIr {
+            name: value.name.clone(),
+            field_type: value.field_type.clone(),
+            default: value.default.clone(),
+            tag: value.tag.clone(),
+        })
+        .collect()
+}
+
+fn gui_apis(ir: &super::CanonicalIr) -> Vec<GuiApiIr> {
+    ir.gui
+        .apis
+        .iter()
+        .map(|value| GuiApiIr {
+            name: value.name.clone(),
+            floating: value.floating,
+            embedded: value.embedded,
+        })
+        .collect()
+}
+
+fn resources(ir: &super::CanonicalIr) -> Vec<ResourceIr> {
+    ir.gui
+        .resources
+        .iter()
+        .map(|value| ResourceIr { path: value.path.clone(), mime: value.mime.clone() })
+        .collect()
+}
+
+fn preset_locations(ir: &super::CanonicalIr) -> Vec<PresetLocationIr> {
+    ir.presets
+        .locations
+        .iter()
+        .map(|value| PresetLocationIr {
+            name: value.name.clone(),
+            kind: value.kind.clone(),
+            path: value.path.clone(),
+        })
+        .collect()
+}
+
+fn preset_formats(ir: &super::CanonicalIr) -> Vec<PresetFormatIr> {
+    ir.presets
+        .formats
+        .iter()
+        .map(|value| PresetFormatIr {
+            name: value.name.clone(),
+            extension: value.extension.clone(),
+            mime: value.mime.clone(),
+        })
+        .collect()
+}
+
+fn factories(ir: &super::CanonicalIr) -> Vec<FactoryIr> {
+    ir.factories
+        .iter()
+        .map(|value| FactoryIr { id: value.id.clone(), kind: value.kind.clone() })
+        .collect()
+}
+
+fn extensions(values: &[super::ExtensionIr], replacements: &[(String, String)]) -> Vec<ExtensionIr> {
+    values.iter().map(|value| extension(value, replacements)).collect()
 }
 
 fn direction(value: super::Direction) -> Direction {
