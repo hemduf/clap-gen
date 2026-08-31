@@ -1,3 +1,4 @@
+mod ids;
 mod ir;
 mod metadata;
 
@@ -7,10 +8,11 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 
+use ids::{allocate as allocate_id, rename as rename_id, tombstone as tombstone_id};
 use ir::{CanonicalIr, build_ir, capability_report_kdl, serialize_ir_kdl};
 use metadata::{DEFAULT_MANIFEST, format_metadata, parse_metadata};
 
-const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
+const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  ids allocate PATH KIND KEY     Allocate or return an immutable numeric CLAP ID\n  ids rename PATH KIND OLD NEW   Rename a registry symbol without changing its numeric ID\n  ids tombstone PATH KIND KEY    Permanently retire an allocated ID\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
 
 fn main() -> ExitCode {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
@@ -43,6 +45,18 @@ fn run(arguments: &[String]) -> Result<String, String> {
         }
         [command, path] if command == "deps" => metadata_dependencies(Path::new(path)),
         [command, path] if command == "validate" => validate_file(Path::new(path)),
+        [command, action, path, kind, key] if command == "ids" && action == "allocate" => {
+            let value = allocate_id(Path::new(path), kind, key)?;
+            Ok(format!("{kind}:{key}={value}"))
+        }
+        [command, action, path, kind, old_key, new_key] if command == "ids" && action == "rename" => {
+            let value = rename_id(Path::new(path), kind, old_key, new_key)?;
+            Ok(format!("{kind}:{new_key}={value}"))
+        }
+        [command, action, path, kind, key] if command == "ids" && action == "tombstone" => {
+            let value = tombstone_id(Path::new(path), kind, key)?;
+            Ok(format!("tombstoned {kind}:{key}={value}"))
+        }
         [command, flag, format, path]
             if command == "inspect" && flag == "--format" && format == "kdl" =>
         {
@@ -228,6 +242,54 @@ mod tests {
         assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
+    }
+
+    #[test]
+    fn immutable_id_commands_cover_allocate_rename_and_tombstone() {
+        let directory = temporary_directory();
+        fs::create_dir_all(&directory).expect("directory");
+        let registry = directory.join("plugin.ids.kdl");
+        let registry_text = registry.to_string_lossy().into_owned();
+
+        assert_eq!(
+            "parameter:cutoff=1",
+            run(&arguments(&["ids", "allocate", &registry_text, "parameter", "cutoff"]))
+                .expect("allocate")
+        );
+        assert_eq!(
+            "parameter:filter-cutoff=1",
+            run(&arguments(&[
+                "ids",
+                "rename",
+                &registry_text,
+                "parameter",
+                "cutoff",
+                "filter-cutoff",
+            ]))
+            .expect("rename")
+        );
+        assert_eq!(
+            "tombstoned parameter:filter-cutoff=1",
+            run(&arguments(&[
+                "ids",
+                "tombstone",
+                &registry_text,
+                "parameter",
+                "filter-cutoff",
+            ]))
+            .expect("tombstone")
+        );
+        let error = run(&arguments(&[
+            "ids",
+            "allocate",
+            &registry_text,
+            "parameter",
+            "filter-cutoff",
+        ]))
+        .expect_err("tombstone cannot be reused");
+        assert!(error.contains("tombstoned"), "{error}");
+
+        fs::remove_dir_all(directory).expect("remove directory");
     }
 
     #[test]
