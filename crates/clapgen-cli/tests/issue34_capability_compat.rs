@@ -9,10 +9,8 @@ fn pinned_stable_compatibility_extension_id_remains_accepted() {
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after epoch")
         .as_nanos();
-    let directory = env::temp_dir().join(format!(
-        "clapgen-issue34-compat-{}-{nonce}",
-        std::process::id()
-    ));
+    let directory =
+        env::temp_dir().join(format!("clapgen-issue34-compat-{}-{nonce}", std::process::id()));
     fs::create_dir_all(&directory).expect("temporary directory should be created");
     let manifest = directory.join("plugin.kdl");
     fs::write(
