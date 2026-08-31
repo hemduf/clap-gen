@@ -61,13 +61,13 @@ class CiPolicyTest(unittest.TestCase):
         )
         self.assertTrue(policy["required_status_checks"]["strict"])
 
-    def test_review_policy_requires_independent_approval(self) -> None:
+    def test_review_policy_supports_solo_maintainer_authorization(self) -> None:
         policy = json.loads(read(".github/branch-protection.json"))
         reviews = policy["required_pull_request_reviews"]
-        self.assertEqual(1, reviews["required_approving_review_count"])
-        self.assertTrue(reviews["dismiss_stale_reviews"])
-        self.assertTrue(reviews["require_code_owner_reviews"])
-        self.assertTrue(reviews["require_last_push_approval"])
+        self.assertEqual(0, reviews["required_approving_review_count"])
+        self.assertFalse(reviews["dismiss_stale_reviews"])
+        self.assertFalse(reviews["require_code_owner_reviews"])
+        self.assertFalse(reviews["require_last_push_approval"])
         self.assertTrue(policy["required_conversation_resolution"])
         self.assertTrue(policy["enforce_admins"])
         self.assertFalse(policy["allow_force_pushes"])
@@ -76,29 +76,27 @@ class CiPolicyTest(unittest.TestCase):
         codeowners = read(".github/CODEOWNERS")
         self.assertIn("* @hemduf", codeowners)
         review_policy = read("docs/ci-and-review-policy.md")
-        self.assertIn("clap-gen-dev[bot]", review_policy)
-        self.assertIn("clap-gen-reviewer[bot]", review_policy)
-        self.assertIn("must never self-approve", review_policy.lower())
+        self.assertIn("solo maintainer", review_policy.lower())
+        self.assertIn("no github approval is required", review_policy.lower())
+        self.assertIn("/automerge", review_policy)
         self.assertIn("Required CI gate", review_policy)
         self.assertIn("Allow auto-merge", review_policy)
 
-    def test_auto_merge_only_enables_after_independent_same_repo_approval(self) -> None:
+    def test_auto_merge_requires_explicit_repository_owner_command(self) -> None:
         workflow = read(".github/workflows/auto-merge.yml")
-        self.assertIn("pull_request_review:", workflow)
-        self.assertIn("types: [submitted]", workflow)
-        self.assertIn("github.event.review.state == 'approved'", workflow)
+        self.assertIn("issue_comment:", workflow)
+        self.assertIn("types: [created]", workflow)
+        self.assertIn("github.event.issue.pull_request", workflow)
+        self.assertIn("github.event.comment.body == '/automerge'", workflow)
         self.assertIn(
-            "github.event.review.user.login != github.event.pull_request.user.login",
-            workflow,
-        )
-        self.assertIn(
-            "github.event.pull_request.head.repo.full_name == github.repository", workflow
+            "github.event.comment.user.login == github.repository_owner", workflow
         )
         self.assertIn("contents: write", workflow)
         self.assertIn("pull-requests: write", workflow)
         self.assertIn("gh pr merge --auto --squash", workflow)
         self.assertIn(".allow_auto_merge", workflow)
-        self.assertIn("Repository auto-merge is disabled", workflow)
+        self.assertIn("head.repo.full_name", workflow)
+        self.assertIn("base.ref", workflow)
         self.assertNotIn("actions/checkout", workflow)
         self.assertNotIn("secrets.", workflow)
 
