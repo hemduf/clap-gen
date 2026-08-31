@@ -14,6 +14,14 @@ fn temporary_directory(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("clapgen-{name}-{}-{nonce}", std::process::id()))
 }
 
+fn relative_temporary_directory(name: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after epoch")
+        .as_nanos();
+    PathBuf::from("target").join(format!("clapgen-{name}-{}-{nonce}", std::process::id()))
+}
+
 fn root_manifest(extra: &str) -> String {
     format!(
         "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.issue34\" name=\"Issue34\" vendor=\"Example\" version=\"1.0.0\"\nprocessor class=\"Issue34Processor\"\n{extra}"
@@ -114,6 +122,41 @@ fn provenance_keys_use_canonical_parameter_ids() {
     assert_eq!("gain", ir.parameters()[0].id);
     assert!(ir.sources().iter().any(|source| source.key == "parameter:gain"));
     assert!(!ir.sources().iter().any(|source| source.key == "parameter: gain "));
+
+    fs::remove_dir_all(directory).expect("cleanup");
+}
+
+#[test]
+fn relative_root_path_is_preserved_in_dependencies_and_import_sources() {
+    let directory = relative_temporary_directory("relative-root");
+    let config = directory.join("config");
+    let shared = directory.join("shared");
+    fs::create_dir_all(&config).expect("config directory");
+    fs::create_dir_all(&shared).expect("shared directory");
+    fs::write(
+        shared.join("common.kdl"),
+        "clapgen schema=\"1.0.0\"\nparameters { param \"Shared\" id=\"shared\" min=0 max=1 default=0.5 }\n",
+    )
+    .expect("shared import");
+    let manifest = config.join("plugin.kdl");
+    fs::write(
+        &manifest,
+        root_manifest(
+            "import \"../shared/common.kdl\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n",
+        ),
+    )
+    .expect("manifest");
+
+    let ir = build_file(&manifest).expect("IR should build");
+    let root = manifest.to_string_lossy().replace('\\', "/");
+    let imported = shared.join("common.kdl").to_string_lossy().replace('\\', "/");
+    assert_eq!(&[root.as_str(), imported.as_str()], ir.dependencies());
+    let source = ir
+        .sources()
+        .iter()
+        .find(|source| source.key == "parameter:shared")
+        .expect("shared source");
+    assert_eq!(imported, source.path);
 
     fs::remove_dir_all(directory).expect("cleanup");
 }
