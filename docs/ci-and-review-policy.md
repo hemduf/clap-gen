@@ -7,23 +7,29 @@ failing test therefore makes the aggregate gate fail and blocks merge.
 
 The canonical branch-protection payload is `.github/branch-protection.json`.
 Repository administrators must keep the live `main` protection equivalent to
-that file: strict required checks, one approving CODEOWNER review, stale-review
-dismissal, last-push approval, resolved review conversations, no force pushes,
-and no branch deletion. The policy applies to administrators as well.
+that file: strict required checks, pull requests required, resolved review
+conversations, no force pushes, no branch deletion, and linear history. The
+policy applies to administrators as well.
 
-## Independent review
+## Solo maintainer authorization
 
-A pull request must never self-approve. The repository uses `@hemduf` as the
-current CODEOWNER. For automated development, the intended author identity is
-`clap-gen-dev[bot]` and the independent automated reviewer identity is
-`clap-gen-reviewer[bot]`. Those identities represent separate GitHub App
-installations/credentials. They must not share credentials, installation
-ownership, or approval state. A human CODEOWNER approval may substitute for the
-reviewer bot.
+This repository currently has a solo maintainer. GitHub does not allow the
+author of a pull request to approve that same pull request, so no GitHub
+approval is required by branch protection. CODEOWNERS documents ownership, but
+CODEOWNER review is not a merge gate.
 
-Bot-authored pull requests are not eligible for merge until an approval comes
-from a different GitHub identity than the pull-request author. A new push must
-invalidate stale approval through branch protection.
+Maintainer validation is explicit: after reviewing a pull request, the repository
+owner comments exactly `/automerge` on that pull request. The conditional
+auto-merge workflow accepts that command only when the comment author is the
+GitHub repository owner.
+
+The command does not bypass CI. Before enabling native squash auto-merge, the
+workflow explicitly verifies that `Required CI gate` is already `SUCCESS`.
+GitHub then still applies the live branch-protection rules, including up-to-date
+branch requirements and conversation resolution.
+
+If this repository later gains additional maintainers, this policy should be
+revisited and can move back to required independent approvals.
 
 ## Pull requests from forks
 
@@ -32,26 +38,22 @@ references repository secrets nor grants write permissions. Untrusted fork code
 therefore runs only with the read-only token GitHub provides to pull-request
 workflows.
 
-The conditional auto-merge workflow never checks out pull-request code. Its
-write-capable job is skipped unless the pull request head repository is exactly
-the base repository, so fork pull requests never execute a write-capable job.
+The conditional auto-merge workflow runs from a trusted issue-comment event and
+never checks out pull-request code. Before enabling auto-merge it fetches the PR
+metadata and requires the head repository to be exactly this repository and the
+base branch to be `main`.
 
 ## Auto-merge
 
 GitHub repository setting **Allow auto-merge** must be enabled before this
 workflow can request native auto-merge. The workflow checks the live repository
 setting first and fails with an explicit diagnostic instead of silently falling
-back to an unsafe direct merge.
+back to a direct merge.
 
-After a same-repository pull request receives an independent approval, the
-`Conditional auto-merge` workflow asks GitHub to enable native squash
-auto-merge. It does not merge by bypassing repository rules. GitHub keeps the
-pull request pending until `Required CI gate`, CODEOWNER approval, stale-review
-rules, and conversation-resolution requirements are all satisfied.
-
-This workflow intentionally reacts to approval rather than CI completion:
-approval before CI enables auto-merge and waits for CI; approval after CI
-enables auto-merge once all branch requirements are already green.
+Issue `/automerge` only after the PR's `Required CI gate` is green. The workflow
+refuses the command while the gate is missing, pending, cancelled, or failed.
+This preflight protects `main` even while live branch-protection settings are
+being configured.
 
 ## Dependency caches and artifacts
 
@@ -63,6 +65,7 @@ uploaded only on failure and retained for seven days.
 ## Applying branch protection
 
 The JSON file is an auditable source of truth for repository settings, but it
-is not itself enforcement. Apply it with repository-administration credentials
-using the GitHub branch protection API for `main`, then verify the live settings
-match the file before enabling unattended merge automation.
+is not itself enforcement. The live `main` rule should require pull requests,
+`Required CI gate`, up-to-date branches, conversation resolution, linear
+history, and should reject force pushes and branch deletion. No approving
+review is required while the project has a single maintainer.

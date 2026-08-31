@@ -1,27 +1,56 @@
 name: Conditional auto-merge
 
 on:
-  pull_request_review:
-    types: [submitted]
+  issue_comment:
+    types: [created]
 
 permissions:
+  checks: read
   contents: write
   pull-requests: write
 
 concurrency:
-  group: auto-merge-${{ github.event.pull_request.number }}
+  group: auto-merge-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
   enable:
     name: Enable native auto-merge
     if: >-
-      github.event.review.state == 'approved' &&
-      github.event.review.user.login != github.event.pull_request.user.login &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.base.ref == 'main'
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/automerge' &&
+      github.event.comment.user.login == github.repository_owner
     runs-on: ubuntu-latest
     steps:
+      - name: Verify pull request eligibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          head_repo="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          base_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.base.ref')"
+          if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Auto-merge is restricted to same-repository pull requests"
+            exit 1
+          fi
+          if [ "$base_ref" != "main" ]; then
+            echo "::error::Auto-merge is restricted to pull requests targeting main"
+            exit 1
+          fi
+
+      - name: Verify Required CI gate passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          gate_state="$(gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json name,state --jq '.[] | select(.name == "Required CI gate") | .state' | tail -n 1)"
+          if [ "$gate_state" != "SUCCESS" ]; then
+            echo "::error::Required CI gate must pass before auto-merge"
+            exit 1
+          fi
+
       - name: Verify repository auto-merge is enabled
         env:
           GH_TOKEN: ${{ github.token }}
@@ -36,5 +65,7 @@ jobs:
       - name: Enable squash auto-merge
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          gh pr merge --auto --squash "https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
