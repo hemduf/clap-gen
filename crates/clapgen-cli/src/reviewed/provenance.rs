@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use kdl::{KdlDocument, KdlNode, KdlValue};
+use kdl::{KdlNode, KdlValue};
 
 use crate::metadata::{ParsedMetadata, parse_metadata};
 
@@ -16,7 +16,6 @@ pub(crate) struct SourceEntry {
 
 #[derive(Debug, Clone)]
 pub(crate) struct SourceDocument {
-    pub(crate) path: PathBuf,
     pub(crate) display_path: String,
     pub(crate) source: String,
     pub(crate) metadata: ParsedMetadata,
@@ -34,12 +33,11 @@ pub(crate) fn collect(
     root_source: &str,
     root_metadata: &ParsedMetadata,
 ) -> Result<SourceBundle, String> {
-    let root_display = root_path
-        .file_name()
-        .map(|value| value.to_string_lossy().into_owned())
-        .unwrap_or_else(|| normalize_display_path(root_path));
+    let root_display = root_path.file_name().map_or_else(
+        || normalize_display_path(root_path),
+        |value| value.to_string_lossy().into_owned(),
+    );
     let root_document = SourceDocument {
-        path: root_path.to_path_buf(),
         display_path: root_display.clone(),
         source: root_source.to_owned(),
         metadata: root_metadata.clone(),
@@ -131,7 +129,6 @@ fn load_imports(
         stack.remove(&canonical);
 
         loaded_documents.push(SourceDocument {
-            path: canonical,
             display_path: display,
             source,
             metadata: parsed,
@@ -251,7 +248,7 @@ fn normalize_display_path(path: &Path) -> String {
             Component::Normal(value) => parts.push(value.to_string_lossy().into_owned()),
             Component::RootDir => parts.clear(),
             Component::Prefix(prefix) => {
-                parts.push(prefix.as_os_str().to_string_lossy().into_owned())
+                parts.push(prefix.as_os_str().to_string_lossy().into_owned());
             }
         }
     }
