@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
+use std::fmt::Write as _;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use kdl::{KdlDocument, KdlValue};
@@ -100,7 +101,7 @@ pub(crate) fn rename(path: &Path, kind: &str, old_key: &str, new_key: &str) -> R
         .iter_mut()
         .find(|entry| entry.kind == kind && entry.key == old_key && !entry.tombstone)
         .ok_or_else(|| format!("{}: active ID `{kind}:{old_key}` was not found", path.display()))?;
-    entry.key = new_key.to_owned();
+    new_key.clone_into(&mut entry.key);
     let value = entry.value;
     canonicalize(&mut registry);
     write_registry_atomic(path, &registry)?;
@@ -281,13 +282,15 @@ fn write_registry_atomic(path: &Path, registry: &Registry) -> Result<(), String>
 fn serialize_registry(registry: &Registry) -> String {
     let mut out = format!("ids version={} next={} {{\n", registry.version, registry.next);
     for entry in &registry.entries {
-        out.push_str(&format!(
-            "    entry kind={} key={} value={} tombstone={}\n",
+        writeln!(
+            &mut out,
+            "    entry kind={} key={} value={} tombstone={}",
             quote(&entry.kind),
             quote(&entry.key),
             entry.value,
             if entry.tombstone { "#true" } else { "#false" }
-        ));
+        )
+        .expect("String write cannot fail");
     }
     out.push_str("}\n");
     out
