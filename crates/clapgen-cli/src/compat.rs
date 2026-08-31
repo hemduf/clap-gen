@@ -455,7 +455,8 @@ fn compare_registry_symbols(
     changes: &mut Vec<Change>,
 ) {
     for old in baseline {
-        let Some(new) = current.iter().find(|new| new.kind == old.kind && new.key == old.key) else {
+        let Some(new) = current.iter().find(|new| new.kind == old.kind && new.key == old.key)
+        else {
             continue;
         };
         if new.value != old.value {
@@ -539,8 +540,7 @@ fn compare_new_registry_ids(
 ) {
     for new in current {
         let existing_value = baseline.iter().any(|old| old.value == new.value);
-        let existing_symbol =
-            baseline.iter().any(|old| old.kind == new.kind && old.key == new.key);
+        let existing_symbol = baseline.iter().any(|old| old.kind == new.kind && old.key == new.key);
         if existing_value || existing_symbol {
             continue;
         }
