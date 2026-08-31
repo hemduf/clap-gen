@@ -84,7 +84,7 @@ struct Parameter {
 struct Port {
     direction: String,
     channels: Option<String>,
-    port_type: Option<String>,
+    media_type: Option<String>,
     flags: String,
     in_place_pair: Option<String>,
     dialects: Option<String>,
@@ -296,7 +296,7 @@ fn ports_equivalent(
 ) -> bool {
     old.direction == new.direction
         && old.channels == new.channels
-        && old.port_type == new.port_type
+        && old.media_type == new.media_type
         && old.flags == new.flags
         && pair_equivalent(
             old.in_place_pair.as_deref(),
@@ -420,10 +420,8 @@ fn compare_id_registries(
     current_manifest: &Path,
     changes: &mut Vec<Change>,
 ) -> Result<RegistryRelation, String> {
-    let baseline_path = sibling_registry(baseline_manifest);
-    let current_path = sibling_registry(current_manifest);
-    let baseline = read_entries(&baseline_path)?;
-    let current = read_entries(&current_path)?;
+    let baseline = read_entries(&sibling_registry(baseline_manifest))?;
+    let current = read_entries(&sibling_registry(current_manifest))?;
     let mut relation = RegistryRelation { renames: Vec::new(), current: current.clone() };
 
     let Some(baseline) = baseline else {
@@ -445,94 +443,113 @@ fn compare_id_registries(
         return Ok(relation);
     };
 
-    let old_by_value =
-        baseline.iter().map(|entry| (entry.value, entry)).collect::<BTreeMap<_, _>>();
-    let new_by_value = current.iter().map(|entry| (entry.value, entry)).collect::<BTreeMap<_, _>>();
-    let old_by_symbol = baseline
-        .iter()
-        .map(|entry| ((entry.kind.as_str(), entry.key.as_str()), entry.value))
-        .collect::<BTreeMap<_, _>>();
-    let new_by_symbol = current
-        .iter()
-        .map(|entry| ((entry.kind.as_str(), entry.key.as_str()), entry.value))
-        .collect::<BTreeMap<_, _>>();
+    compare_registry_symbols(&baseline, &current, changes);
+    compare_released_registry_ids(&baseline, &current, &mut relation, changes);
+    compare_new_registry_ids(&baseline, &current, changes);
+    Ok(relation)
+}
 
-    for (symbol, old_value) in &old_by_symbol {
-        if let Some(new_value) = new_by_symbol.get(symbol)
-            && new_value != old_value
-        {
+fn compare_registry_symbols(
+    baseline: &[RegistryEntry],
+    current: &[RegistryEntry],
+    changes: &mut Vec<Change>,
+) {
+    for old in baseline {
+        let Some(new) = current.iter().find(|new| new.kind == old.kind && new.key == old.key) else {
+            continue;
+        };
+        if new.value != old.value {
             changes.push(Change {
                 class: Class::Forbidden,
-                subject: format!("clap-id.{}:{}", symbol.0, symbol.1),
-                detail: format!("numeric ID changed from `{old_value}` to `{new_value}`"),
+                subject: format!("clap-id.{}:{}", old.kind, old.key),
+                detail: format!("numeric ID changed from `{}` to `{}`", old.value, new.value),
             });
         }
     }
+}
 
-    for (value, old) in &old_by_value {
-        let Some(new) = new_by_value.get(value) else {
+fn compare_released_registry_ids(
+    baseline: &[RegistryEntry],
+    current: &[RegistryEntry],
+    relation: &mut RegistryRelation,
+    changes: &mut Vec<Change>,
+) {
+    for old in baseline {
+        let Some(new) = current.iter().find(|new| new.value == old.value) else {
             changes.push(Change {
                 class: Class::Forbidden,
-                subject: format!("clap-id.{value}"),
+                subject: format!("clap-id.{}", old.value),
                 detail: format!("released numeric ID for `{}:{}` disappeared", old.kind, old.key),
             });
             continue;
         };
-        if old.kind != new.kind {
-            changes.push(Change {
-                class: Class::Forbidden,
-                subject: format!("clap-id.{value}"),
-                detail: format!("ID kind changed from `{}` to `{}`", old.kind, new.kind),
+        compare_released_registry_id(old, new, relation, changes);
+    }
+}
+
+fn compare_released_registry_id(
+    old: &RegistryEntry,
+    new: &RegistryEntry,
+    relation: &mut RegistryRelation,
+    changes: &mut Vec<Change>,
+) {
+    if old.kind != new.kind {
+        changes.push(Change {
+            class: Class::Forbidden,
+            subject: format!("clap-id.{}", old.value),
+            detail: format!("ID kind changed from `{}` to `{}`", old.kind, new.kind),
+        });
+        return;
+    }
+    if old.tombstone && !new.tombstone {
+        changes.push(Change {
+            class: Class::Forbidden,
+            subject: format!("clap-id.{}", old.value),
+            detail: "permanent tombstone was resurrected".to_owned(),
+        });
+    } else if !old.tombstone && new.tombstone {
+        changes.push(Change {
+            class: Class::Sensitive,
+            subject: format!("clap-id.{}", old.value),
+            detail: format!("released ID `{}:{}` was retired as a tombstone", old.kind, old.key),
+        });
+    } else if old.key != new.key {
+        changes.push(Change {
+            class: Class::Compatible,
+            subject: format!("clap-id.{}", old.value),
+            detail: format!(
+                "symbol renamed from `{}` to `{}` with numeric ID preserved",
+                old.key, new.key
+            ),
+        });
+        if !old.tombstone {
+            relation.renames.push(RegistryRename {
+                kind: old.kind.clone(),
+                from: old.key.clone(),
+                to: new.key.clone(),
             });
-            continue;
-        }
-        if old.tombstone && !new.tombstone {
-            changes.push(Change {
-                class: Class::Forbidden,
-                subject: format!("clap-id.{value}"),
-                detail: "permanent tombstone was resurrected".to_owned(),
-            });
-        } else if !old.tombstone && new.tombstone {
-            changes.push(Change {
-                class: Class::Sensitive,
-                subject: format!("clap-id.{value}"),
-                detail: format!(
-                    "released ID `{}:{}` was retired as a tombstone",
-                    old.kind, old.key
-                ),
-            });
-        } else if old.key != new.key {
-            changes.push(Change {
-                class: Class::Compatible,
-                subject: format!("clap-id.{value}"),
-                detail: format!(
-                    "symbol renamed from `{}` to `{}` with numeric ID preserved",
-                    old.key, new.key
-                ),
-            });
-            if !old.tombstone {
-                relation.renames.push(RegistryRename {
-                    kind: old.kind.clone(),
-                    from: old.key.clone(),
-                    to: new.key.clone(),
-                });
-            }
         }
     }
+}
 
-    for (value, entry) in &new_by_value {
-        if old_by_value.contains_key(value)
-            || old_by_symbol.contains_key(&(entry.kind.as_str(), entry.key.as_str()))
-        {
+fn compare_new_registry_ids(
+    baseline: &[RegistryEntry],
+    current: &[RegistryEntry],
+    changes: &mut Vec<Change>,
+) {
+    for new in current {
+        let existing_value = baseline.iter().any(|old| old.value == new.value);
+        let existing_symbol =
+            baseline.iter().any(|old| old.kind == new.kind && old.key == new.key);
+        if existing_value || existing_symbol {
             continue;
         }
         changes.push(Change {
             class: Class::Compatible,
-            subject: format!("clap-id.{value}"),
-            detail: format!("new numeric ID allocated to `{}:{}`", entry.kind, entry.key),
+            subject: format!("clap-id.{}", new.value),
+            detail: format!("new numeric ID allocated to `{}:{}`", new.kind, new.key),
         });
     }
-    Ok(relation)
 }
 
 fn validate_current_registry_coverage(
@@ -666,7 +683,7 @@ fn collect_ports(
             Port {
                 direction: node.name().value().to_owned(),
                 channels: (!note).then(|| value_prop(node, "channels")).transpose()?,
-                port_type: if note { None } else { string_prop(node, "type").map(str::to_owned) },
+                media_type: if note { None } else { string_prop(node, "type").map(str::to_owned) },
                 flags: if note {
                     String::new()
                 } else {
