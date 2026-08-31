@@ -3,14 +3,14 @@ use std::path::Path;
 
 use crate::metadata::ParsedMetadata;
 
-#[path = "reviewed/mod.rs"]
-mod reviewed;
 #[path = "reviewed/access.rs"]
 mod access;
 #[path = "reviewed/capabilities.rs"]
 mod capabilities;
 #[path = "reviewed/provenance.rs"]
 mod provenance;
+#[path = "reviewed/mod.rs"]
+mod reviewed;
 
 pub(crate) use access::{
     AudioPortIr, Direction, ExtensionIr, FactoryIr, GuiApiIr, NoteNameIr, NotePortIr, ParameterIr,
