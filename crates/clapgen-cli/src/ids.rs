@@ -289,6 +289,8 @@ mod tests {
     use std::env;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{allocate, parse_registry, rename, serialize_registry, tombstone};
@@ -330,6 +332,32 @@ mod tests {
         assert!(error.contains("collision"), "{error}");
         assert!(error.contains("parameter:a"), "{error}");
         assert!(error.contains("port:b"), "{error}");
+    }
+
+    #[test]
+    fn concurrent_allocation_never_silently_duplicates_numeric_ids() {
+        let path = temporary_path();
+        let barrier = Arc::new(Barrier::new(2));
+        let handles = ["a", "b"].map(|key| {
+            let path = path.clone();
+            let barrier = Arc::clone(&barrier);
+            thread::spawn(move || {
+                barrier.wait();
+                allocate(&path, "parameter", key)
+            })
+        });
+        let first = handles.into_iter().map(|handle| handle.join().expect("thread")).collect::<Vec<_>>();
+        let successes = first.iter().filter_map(|result| result.as_ref().ok().copied()).collect::<Vec<_>>();
+        assert!(successes.len() >= 1, "at least one concurrent writer should succeed: {first:?}");
+        if successes.len() == 2 {
+            assert_ne!(successes[0], successes[1], "concurrent writers must never receive duplicate IDs");
+        } else {
+            let error = first.iter().find_map(|result| result.as_ref().err()).expect("one lock error");
+            assert!(error.contains("another `clapgen ids` update"), "{error}");
+        }
+        let source = fs::read_to_string(&path).expect("registry must remain readable");
+        parse_registry(&path, &source).expect("registry must remain valid after concurrent update");
+        let _ = fs::remove_file(path);
     }
 
     #[test]
