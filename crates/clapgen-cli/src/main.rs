@@ -1,3 +1,4 @@
+mod ir;
 mod metadata;
 
 use std::env;
