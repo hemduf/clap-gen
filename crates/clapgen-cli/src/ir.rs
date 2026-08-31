@@ -528,6 +528,15 @@ fn build_extensions(
             .to_owned();
         let version = string_prop(node, "version").map(str::to_owned);
         let is_draft = bool_prop(node, "draft").unwrap_or(false);
+        if !is_draft && is_versioned_official_clap_id(&id) {
+            return Err(diagnostic(
+                path,
+                source,
+                "enable",
+                &format!("versioned CLAP extension `{id}` requires explicit draft opt-in"),
+                "add `draft=#true` and keep the exact ABI `version` pin",
+            ));
+        }
         if is_draft && !has_exact_draft_pin(&id, version.as_deref()) {
             return Err(diagnostic(
                 path,
@@ -547,6 +556,10 @@ fn build_extensions(
         }
     }
     Ok((stable, draft))
+}
+
+fn is_versioned_official_clap_id(id: &str) -> bool {
+    id.starts_with("clap.") && id.rsplit_once('/').is_some_and(|(_, abi)| !abi.is_empty())
 }
 
 fn has_exact_draft_pin(id: &str, version: Option<&str>) -> bool {
@@ -1291,6 +1304,13 @@ mod tests {
         assert!(error.contains("draft"), "{error}");
         assert!(error.contains("exact ABI"), "{error}");
         assert!(error.contains("version"), "{error}");
+
+        let missing_opt_in = format!(
+            "{PREFIX}parameters {{}}\naudio-ports {{}}\nnote-ports {{}}\nstate {{}}\ngui {{ api \"web\" }}\npresets {{}}\nfactories {{}}\nextensions {{ enable \"clap.webview/3\" version=\"3\" }}\n"
+        );
+        let error = build(&missing_opt_in).expect_err("versioned CLAP draft must require opt-in");
+        assert!(error.contains("clap.webview/3"), "{error}");
+        assert!(error.contains("draft=#true"), "{error}");
 
         let valid = format!(
             "{PREFIX}parameters {{}}\naudio-ports {{}}\nnote-ports {{}}\nstate {{}}\ngui {{ api \"web\" }}\npresets {{}}\nfactories {{}}\nextensions {{ enable \"clap.webview/3\" version=\"3\" draft=#true }}\n"
