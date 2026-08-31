@@ -1,0 +1,8 @@
+/build/
+/target/
+/.cache/
+/.idea/
+/.vscode/
+__pycache__/
+*.py[cod]
+compile_commands.json

@@ -1,0 +1,19 @@
+[package]
+name = "clapgen-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Metadata-driven CLAP plugin code generator"
+publish = false
+
+[[bin]]
+name = "clapgen"
+path = "src/main.rs"
+
+[dependencies]
+kdl = "=6.7.1"
+
+[lints]
+workspace = true
