@@ -98,6 +98,27 @@ fn normalized_extension_id_keeps_header_mapping() {
 }
 
 #[test]
+fn provenance_keys_use_canonical_parameter_ids() {
+    let directory = temporary_directory("canonical-provenance-key");
+    fs::create_dir_all(&directory).expect("directory");
+    let manifest = directory.join("plugin.kdl");
+    fs::write(
+        &manifest,
+        root_manifest(
+            "parameters { param \"Gain\" id=\" gain \" min=0 max=1 default=0.5 }\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n",
+        ),
+    )
+    .expect("manifest");
+
+    let ir = build_file(&manifest).expect("IR should build");
+    assert_eq!("gain", ir.parameters()[0].id);
+    assert!(ir.sources().iter().any(|source| source.key == "parameter:gain"));
+    assert!(!ir.sources().iter().any(|source| source.key == "parameter: gain "));
+
+    fs::remove_dir_all(directory).expect("cleanup");
+}
+
+#[test]
 fn transitive_imports_are_exposed_as_deterministic_dependencies() {
     let directory = temporary_directory("dependencies");
     fs::create_dir_all(directory.join("shared/nested")).expect("directory");
