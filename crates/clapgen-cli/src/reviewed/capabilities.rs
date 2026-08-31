@@ -15,6 +15,7 @@ enum Stability {
 const STABLE_UNVERSIONED: &[(&str, &str)] = &[
     ("clap.audio-ports", "clap/ext/audio-ports.h"),
     ("clap.audio-ports-config", "clap/ext/audio-ports-config.h"),
+    ("clap.configurable-audio-ports.draft1", "clap/ext/configurable-audio-ports.h"),
     ("clap.event-registry", "clap/ext/event-registry.h"),
     ("clap.gui", "clap/ext/gui.h"),
     ("clap.latency", "clap/ext/latency.h"),
@@ -99,6 +100,7 @@ pub(crate) fn validate(documents: &[SourceDocument]) -> Result<(), String> {
 }
 
 pub(crate) fn header_for(id: &str) -> Option<&'static str> {
+    let id = id.trim();
     STABLE_UNVERSIONED
         .iter()
         .chain(STABLE_VERSIONED)
