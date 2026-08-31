@@ -33,10 +33,14 @@ pub(crate) fn collect(
     root_source: &str,
     root_metadata: &ParsedMetadata,
 ) -> Result<SourceBundle, String> {
-    let root_display = root_path.file_name().map_or_else(
-        || normalize_display_path(root_path),
-        |value| value.to_string_lossy().into_owned(),
-    );
+    let root_display = if root_path.is_relative() {
+        normalize_display_path(root_path)
+    } else {
+        root_path.file_name().map_or_else(
+            || normalize_display_path(root_path),
+            |value| value.to_string_lossy().into_owned(),
+        )
+    };
     let root_document = SourceDocument {
         display_path: root_display.clone(),
         source: root_source.to_owned(),
