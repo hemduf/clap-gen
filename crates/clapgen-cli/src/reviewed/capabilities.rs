@@ -12,16 +12,24 @@ enum Stability {
 
 const STABLE_VERSIONED: &[(&str, &str)] = &[
     ("clap.ambisonic/3", "clap/ext/ambisonic.h"),
+    ("clap.ambisonic.draft/3", "clap/ext/ambisonic.h"),
     ("clap.audio-ports-activation/2", "clap/ext/audio-ports-activation.h"),
+    ("clap.audio-ports-activation/draft-2", "clap/ext/audio-ports-activation.h"),
     ("clap.audio-ports-config-info/1", "clap/ext/audio-ports-config.h"),
+    ("clap.audio-ports-config-info/draft-0", "clap/ext/audio-ports-config.h"),
     ("clap.configurable-audio-ports/1", "clap/ext/configurable-audio-ports.h"),
     ("clap.context-menu/1", "clap/ext/context-menu.h"),
+    ("clap.context-menu.draft/0", "clap/ext/context-menu.h"),
     ("clap.param-indication/4", "clap/ext/param-indication.h"),
+    ("clap.param-indication.draft/4", "clap/ext/param-indication.h"),
     ("clap.preset-load/2", "clap/ext/preset-load.h"),
     ("clap.remote-controls/2", "clap/ext/remote-controls.h"),
+    ("clap.remote-controls.draft/2", "clap/ext/remote-controls.h"),
     ("clap.state-context/2", "clap/ext/state-context.h"),
     ("clap.surround/4", "clap/ext/surround.h"),
+    ("clap.surround.draft/4", "clap/ext/surround.h"),
     ("clap.track-info/1", "clap/ext/track-info.h"),
+    ("clap.track-info.draft/1", "clap/ext/track-info.h"),
 ];
 
 const DRAFT_VERSIONED: &[(&str, &str)] = &[
@@ -116,13 +124,14 @@ fn validate_extension(document: &SourceDocument, node: &KdlNode) -> Result<(), S
         _ => {}
     }
 
-    if let Some(version) = string_prop(node, "version")
+    if stability == Stability::Draft
+        && let Some(version) = string_prop(node, "version")
         && id.rsplit_once('/').is_some_and(|(_, abi)| abi != version)
     {
         return Err(diagnostic(
             document,
             node,
-            &format!("extension `{id}` has mismatched ABI version pin `{version}`"),
+            &format!("draft extension `{id}` has mismatched ABI version pin `{version}`"),
             "make `version` match the extension ID revision",
         ));
     }
