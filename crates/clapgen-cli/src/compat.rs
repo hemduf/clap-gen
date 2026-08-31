@@ -666,11 +666,7 @@ fn collect_ports(
             Port {
                 direction: node.name().value().to_owned(),
                 channels: (!note).then(|| value_prop(node, "channels")).transpose()?,
-                port_type: if note {
-                    None
-                } else {
-                    string_prop(node, "type").map(str::to_owned)
-                },
+                port_type: if note { None } else { string_prop(node, "type").map(str::to_owned) },
                 flags: if note {
                     String::new()
                 } else {
@@ -999,9 +995,6 @@ mod tests {
 
     #[test]
     fn json_report_escapes_all_ascii_control_characters() {
-        assert_eq!(
-            "\"a\\u0001b\\b\\f\\n\\r\\t\"",
-            json_string("a\u{1}b\u{8}\u{c}\n\r\t")
-        );
+        assert_eq!("\"a\\u0001b\\b\\f\\n\\r\\t\"", json_string("a\u{1}b\u{8}\u{c}\n\r\t"));
     }
 }
