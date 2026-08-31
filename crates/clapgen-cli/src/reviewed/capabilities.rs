@@ -10,6 +10,28 @@ enum Stability {
     Draft,
 }
 
+// Stable, unversioned extension IDs exposed by the pinned CLAP SDK. These are not part of the
+// version-policy validation below, but codegen needs their exact headers to emit minimal includes.
+const STABLE_UNVERSIONED: &[(&str, &str)] = &[
+    ("clap.audio-ports", "clap/ext/audio-ports.h"),
+    ("clap.audio-ports-config", "clap/ext/audio-ports-config.h"),
+    ("clap.event-registry", "clap/ext/event-registry.h"),
+    ("clap.gui", "clap/ext/gui.h"),
+    ("clap.latency", "clap/ext/latency.h"),
+    ("clap.log", "clap/ext/log.h"),
+    ("clap.note-name", "clap/ext/note-name.h"),
+    ("clap.note-ports", "clap/ext/note-ports.h"),
+    ("clap.params", "clap/ext/params.h"),
+    ("clap.posix-fd-support", "clap/ext/posix-fd-support.h"),
+    ("clap.render", "clap/ext/render.h"),
+    ("clap.state", "clap/ext/state.h"),
+    ("clap.tail", "clap/ext/tail.h"),
+    ("clap.thread-check", "clap/ext/thread-check.h"),
+    ("clap.thread-pool", "clap/ext/thread-pool.h"),
+    ("clap.timer-support", "clap/ext/timer-support.h"),
+    ("clap.voice-info", "clap/ext/voice-info.h"),
+];
+
 const STABLE_VERSIONED: &[(&str, &str)] = &[
     ("clap.ambisonic/3", "clap/ext/ambisonic.h"),
     ("clap.ambisonic.draft/3", "clap/ext/ambisonic.h"),
@@ -77,8 +99,9 @@ pub(crate) fn validate(documents: &[SourceDocument]) -> Result<(), String> {
 }
 
 pub(crate) fn header_for(id: &str) -> Option<&'static str> {
-    STABLE_VERSIONED
+    STABLE_UNVERSIONED
         .iter()
+        .chain(STABLE_VERSIONED)
         .chain(DRAFT_VERSIONED)
         .find_map(|(candidate, header)| (*candidate == id).then_some(*header))
 }
