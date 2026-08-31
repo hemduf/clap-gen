@@ -181,14 +181,7 @@ pub(crate) fn build_ir(
         &mut draft_extensions,
     )?;
     validate_audio_references(path, source, &audio_ports)?;
-    validate_dependencies(
-        path,
-        source,
-        &stable_extensions,
-        &draft_extensions,
-        &note_ports,
-        &gui,
-    )?;
+    validate_dependencies(path, source, &stable_extensions, &draft_extensions, &note_ports, &gui)?;
 
     let imports = canonical_imports(metadata);
     Ok(CanonicalIr {
@@ -259,11 +252,8 @@ fn build_parameters(
 
 fn build_parameter(path: &Path, source: &str, node: &KdlNode) -> Result<ParameterIr, String> {
     let id = required_string(path, source, node, "id")?;
-    let name = first_string(node)
-        .or_else(|| string_prop(node, "name"))
-        .unwrap_or(&id)
-        .trim()
-        .to_owned();
+    let name =
+        first_string(node).or_else(|| string_prop(node, "name")).unwrap_or(&id).trim().to_owned();
     let min = required_number(path, source, node, "min", &id)?;
     let max = required_number(path, source, node, "max", &id)?;
     let default = required_number(path, source, node, "default", &id)?;
@@ -525,9 +515,7 @@ fn build_factories(
                 .to_owned();
             Ok(FactoryIr {
                 id,
-                kind: string_prop(node, "kind")
-                    .map(token)
-                    .unwrap_or_else(|| "plugin".to_owned()),
+                kind: string_prop(node, "kind").map(token).unwrap_or_else(|| "plugin".to_owned()),
             })
         })
         .collect()
@@ -564,7 +552,9 @@ fn build_extensions(
                 path,
                 source,
                 "enable",
-                &format!("draft extension `{id}` must declare an exact ABI ID and matching `version` pin"),
+                &format!(
+                    "draft extension `{id}` must declare an exact ABI ID and matching `version` pin"
+                ),
                 "use an exact ID such as `clap.webview/3` with `version=\"3\" draft=#true`",
             ));
         }
@@ -582,8 +572,7 @@ fn has_exact_draft_pin(id: &str, version: Option<&str>) -> bool {
     let Some(version) = version else {
         return false;
     };
-    id.rsplit_once('/')
-        .is_some_and(|(_, abi)| !abi.is_empty() && abi == version)
+    id.rsplit_once('/').is_some_and(|(_, abi)| !abi.is_empty() && abi == version)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -623,12 +612,7 @@ fn canonicalize(
         stable_extensions.iter().map(|value| value.id.as_str()),
         "stable extension",
     )?;
-    unique(
-        path,
-        source,
-        draft_extensions.iter().map(|value| value.id.as_str()),
-        "draft extension",
-    )
+    unique(path, source, draft_extensions.iter().map(|value| value.id.as_str()), "draft extension")
 }
 
 fn unique<'a>(
@@ -667,7 +651,10 @@ fn validate_audio_references(
                 path,
                 source,
                 port.direction.as_str(),
-                &format!("audio port `{}` has in-place-pair reference to missing target `{target_id}`", port.id),
+                &format!(
+                    "audio port `{}` has in-place-pair reference to missing target `{target_id}`",
+                    port.id
+                ),
                 "reference an existing opposite-direction audio port ID",
             ));
         };
@@ -676,7 +663,10 @@ fn validate_audio_references(
                 path,
                 source,
                 port.direction.as_str(),
-                &format!("audio port `{}` has incompatible in-place-pair target `{target_id}`", port.id),
+                &format!(
+                    "audio port `{}` has incompatible in-place-pair target `{target_id}`",
+                    port.id
+                ),
                 "in-place pairs require opposite directions and matching channel counts",
             ));
         }
@@ -692,7 +682,8 @@ fn validate_dependencies(
     note_ports: &[NotePortIr],
     gui: &GuiIr,
 ) -> Result<(), String> {
-    let ids = stable.iter().chain(draft).map(|extension| extension.id.as_str()).collect::<BTreeSet<_>>();
+    let ids =
+        stable.iter().chain(draft).map(|extension| extension.id.as_str()).collect::<BTreeSet<_>>();
     if ids.contains("clap.note-expression") && note_ports.is_empty() {
         return Err(diagnostic(
             path,
@@ -828,7 +819,11 @@ fn write_state(out: &mut String, fields: &[StateFieldIr]) {
                 "    field {} type={}{}{}",
                 quote(&value.name),
                 quote(&value.field_type),
-                value.default.as_ref().map(|default| format!(" default={default}")).unwrap_or_default(),
+                value
+                    .default
+                    .as_ref()
+                    .map(|default| format!(" default={default}"))
+                    .unwrap_or_default(),
                 option_prop("tag", value.tag.as_deref())
             ),
         );
@@ -852,7 +847,11 @@ fn write_gui(out: &mut String, gui: &GuiIr) {
     for value in &gui.resources {
         line(
             out,
-            format_args!("    resource {}{}", quote(&value.path), option_prop("mime", value.mime.as_deref())),
+            format_args!(
+                "    resource {}{}",
+                quote(&value.path),
+                option_prop("mime", value.mime.as_deref())
+            ),
         );
     }
     out.push_str("}\n");
@@ -898,7 +897,11 @@ fn write_extensions(out: &mut String, stable: &[ExtensionIr], draft: &[Extension
     for value in stable {
         line(
             out,
-            format_args!("    stable {}{}", quote(&value.id), option_prop("version", value.version.as_deref())),
+            format_args!(
+                "    stable {}{}",
+                quote(&value.id),
+                option_prop("version", value.version.as_deref())
+            ),
         );
     }
     for value in draft {
@@ -1071,11 +1074,14 @@ fn named_list(
             path,
             source,
             node.name().value(),
-            &format!("`{subject}` property `{key}` must use named symbolic values; raw numeric C bitmasks are not accepted"),
+            &format!(
+                "`{subject}` property `{key}` must use named symbolic values; raw numeric C bitmasks are not accepted"
+            ),
             "use a comma-separated string of symbolic names",
         ));
     };
-    let mut values = value.split(',').map(token).filter(|value| !value.is_empty()).collect::<Vec<_>>();
+    let mut values =
+        value.split(',').map(token).filter(|value| !value.is_empty()).collect::<Vec<_>>();
     values.sort();
     values.dedup();
     Ok(values)
