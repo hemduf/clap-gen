@@ -10,12 +10,12 @@ mod provenance;
 #[path = "reviewed/mod.rs"]
 mod reviewed;
 
+pub(crate) use provenance::SourceEntry;
 #[allow(unused_imports)]
 pub(crate) use reviewed::{
     AudioPortIr, Direction, ExtensionIr, FactoryIr, GuiApiIr, NoteNameIr, NotePortIr, ParameterIr,
     PluginIr, PresetFormatIr, PresetLocationIr, ProcessorIr, ResourceIr, StateFieldIr,
 };
-pub(crate) use provenance::SourceEntry;
 
 #[derive(Debug)]
 pub(crate) struct ExtensionSet(usize);
