@@ -23,9 +23,10 @@ owner comments exactly `/automerge` on that pull request. The conditional
 auto-merge workflow accepts that command only when the comment author is the
 GitHub repository owner.
 
-The command does not bypass CI. It only asks GitHub to enable native squash
-auto-merge; GitHub still waits until `Required CI gate` passes, the branch is up
-to date, and required review conversations are resolved.
+The command does not bypass CI. Before enabling native squash auto-merge, the
+workflow explicitly verifies that `Required CI gate` is already `SUCCESS`.
+GitHub then still applies the live branch-protection rules, including up-to-date
+branch requirements and conversation resolution.
 
 If this repository later gains additional maintainers, this policy should be
 revisited and can move back to required independent approvals.
@@ -49,10 +50,10 @@ workflow can request native auto-merge. The workflow checks the live repository
 setting first and fails with an explicit diagnostic instead of silently falling
 back to a direct merge.
 
-The explicit `/automerge` owner command can be issued before or after CI
-finishes. If issued before CI, GitHub waits for `Required CI gate`; if issued
-after CI, GitHub merges as soon as all live branch-protection requirements are
-satisfied.
+Issue `/automerge` only after the PR's `Required CI gate` is green. The workflow
+refuses the command while the gate is missing, pending, cancelled, or failed.
+This preflight protects `main` even while live branch-protection settings are
+being configured.
 
 ## Dependency caches and artifacts
 
