@@ -179,10 +179,12 @@ fn collect_section(
 fn semantic_key(section: &str, node: &KdlNode) -> Option<String> {
     match (section, node.name().value()) {
         ("parameters", "param") => canonical_id(node, "id").map(|id| format!("parameter:{id}")),
-        ("audio-ports", "input" | "output") => canonical_id(node, "id")
-            .map(|id| format!("audio-port:{}:{id}", node.name().value())),
-        ("note-ports", "input" | "output") => canonical_id(node, "id")
-            .map(|id| format!("note-port:{}:{id}", node.name().value())),
+        ("audio-ports", "input" | "output") => {
+            canonical_id(node, "id").map(|id| format!("audio-port:{}:{id}", node.name().value()))
+        }
+        ("note-ports", "input" | "output") => {
+            canonical_id(node, "id").map(|id| format!("note-port:{}:{id}", node.name().value()))
+        }
         ("note-ports", "note-name") => first_string(node).map(|name| {
             let key =
                 integer_prop(node, "key").map_or_else(|| "*".to_owned(), |value| value.to_string());
