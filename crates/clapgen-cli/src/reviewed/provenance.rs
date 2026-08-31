@@ -174,13 +174,11 @@ fn collect_section(
 
 fn semantic_key(section: &str, node: &KdlNode) -> Option<String> {
     match (section, node.name().value()) {
-        ("parameters", "param") => string_prop(node, "id").map(|id| format!("parameter:{id}")),
-        ("audio-ports", "input" | "output") => {
-            string_prop(node, "id").map(|id| format!("audio-port:{}:{id}", node.name().value()))
-        }
-        ("note-ports", "input" | "output") => {
-            string_prop(node, "id").map(|id| format!("note-port:{}:{id}", node.name().value()))
-        }
+        ("parameters", "param") => canonical_id(node, "id").map(|id| format!("parameter:{id}")),
+        ("audio-ports", "input" | "output") => canonical_id(node, "id")
+            .map(|id| format!("audio-port:{}:{id}", node.name().value())),
+        ("note-ports", "input" | "output") => canonical_id(node, "id")
+            .map(|id| format!("note-port:{}:{id}", node.name().value())),
         ("note-ports", "note-name") => first_string(node).map(|name| {
             let key =
                 integer_prop(node, "key").map_or_else(|| "*".to_owned(), |value| value.to_string());
@@ -205,9 +203,14 @@ fn semantic_key(section: &str, node: &KdlNode) -> Option<String> {
         }
         ("extensions", "enable") => first_string(node)
             .or_else(|| string_prop(node, "id"))
+            .map(str::trim)
             .map(|id| format!("extension:{id}")),
         _ => None,
     }
+}
+
+fn canonical_id<'a>(node: &'a KdlNode, key: &str) -> Option<&'a str> {
+    string_prop(node, key).map(str::trim).filter(|value| !value.is_empty())
 }
 
 fn push_source(out: &mut Vec<SourceEntry>, document: &SourceDocument, node: &KdlNode, key: String) {
