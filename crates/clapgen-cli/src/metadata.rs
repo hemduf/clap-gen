@@ -16,6 +16,7 @@ note-ports {}
 state {}
 gui {}
 presets {}
+factories {}
 extensions {}
 "#;
 
@@ -30,6 +31,7 @@ const ROOT_NODES: &[&str] = &[
     "state",
     "gui",
     "presets",
+    "factories",
     "extensions",
 ];
 
@@ -268,6 +270,7 @@ fn allowed_children(node: &str) -> &'static [&'static str] {
         "state" => &["field"],
         "gui" => &["api", "resource"],
         "presets" => &["location", "format"],
+        "factories" => &["factory"],
         "extensions" => &["namespace", "enable"],
         _ => &[],
     }
@@ -294,6 +297,7 @@ fn allowed_properties(parent: Option<&str>, node: &str) -> &'static [&'static st
         (Some("gui"), "resource") => &["path", "mime"],
         (Some("presets"), "location") => &["kind", "path"],
         (Some("presets"), "format") => &["extension", "mime"],
+        (Some("factories"), "factory") => &["id", "kind"],
         (Some("extensions"), "enable") => &["id", "version", "draft"],
         _ => &[],
     }
@@ -379,6 +383,7 @@ note-ports {}
 state {}
 gui {}
 presets {}
+factories {}
 extensions {
     namespace "acme"
 }

@@ -1,3 +1,4 @@
+mod ir;
 mod metadata;
 
 use std::env;
@@ -6,9 +7,10 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 
+use ir::{CanonicalIr, build_ir, capability_report_kdl, serialize_ir_kdl};
 use metadata::{DEFAULT_MANIFEST, format_metadata, parse_metadata};
 
-const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]          Create canonical KDL 2.0 metadata\n  fmt [--check] PATH  Format and validate metadata\n  deps PATH            Print metadata import dependencies\n  doctor               Check the bootstrap toolchain contract\n  help                 Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
+const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
 
 fn main() -> ExitCode {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
@@ -40,6 +42,17 @@ fn run(arguments: &[String]) -> Result<String, String> {
             format_file(Path::new(path), true)
         }
         [command, path] if command == "deps" => metadata_dependencies(Path::new(path)),
+        [command, path] if command == "validate" => validate_file(Path::new(path)),
+        [command, flag, format, path]
+            if command == "inspect" && flag == "--format" && format == "kdl" =>
+        {
+            inspect_ir(Path::new(path))
+        }
+        [command, flag, format, path]
+            if command == "inspect" && flag == "--format" && format == "capabilities" =>
+        {
+            inspect_capabilities(Path::new(path))
+        }
         [] => Err(HELP.to_owned()),
         _ => Err(format!("unknown command or arguments\n\n{HELP}")),
     }
@@ -99,6 +112,31 @@ fn metadata_dependencies(path: &Path) -> Result<String, String> {
         .collect::<Vec<_>>();
 
     Ok(dependencies.join("\n"))
+}
+
+fn compile_ir(path: &Path) -> Result<CanonicalIr, String> {
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read `{}`: {error}", path.display()))?;
+    let metadata = parse_metadata(path, &source)?;
+    build_ir(path, &source, &metadata)
+}
+
+fn validate_file(path: &Path) -> Result<String, String> {
+    let ir = compile_ir(path)?;
+    Ok(format!(
+        "valid: {}\nir-version: {}\ncapabilities: {}",
+        path.display(),
+        ir.version,
+        ir.stable_extensions.len() + ir.draft_extensions.len()
+    ))
+}
+
+fn inspect_ir(path: &Path) -> Result<String, String> {
+    Ok(serialize_ir_kdl(&compile_ir(path)?))
+}
+
+fn inspect_capabilities(path: &Path) -> Result<String, String> {
+    Ok(capability_report_kdl(&compile_ir(path)?))
 }
 
 fn doctor() -> Result<String, String> {
@@ -165,6 +203,29 @@ mod tests {
 
         let deps = run(&arguments(&["deps", &path_text])).expect("deps should succeed");
         assert!(deps.ends_with("shared/common.kdl"), "{deps}");
+
+        fs::remove_dir_all(directory).expect("temporary directory should be removable");
+    }
+
+    #[test]
+    fn validate_and_inspect_use_the_canonical_ir_pipeline() {
+        let directory = temporary_directory();
+        let path = directory.join("plugin.kdl");
+        let path_text = path.to_string_lossy().into_owned();
+        run(&arguments(&["init", &path_text])).expect("init should succeed");
+
+        let validation = run(&arguments(&["validate", &path_text]))
+            .expect("default manifest should be semantically valid");
+        assert!(validation.contains("ir-version: 1"), "{validation}");
+
+        let ir = run(&arguments(&["inspect", "--format", "kdl", &path_text]))
+            .expect("IR inspection should succeed");
+        assert!(ir.starts_with("ir version=1\n"), "{ir}");
+        assert!(ir.contains("capabilities {"), "{ir}");
+
+        let capabilities = run(&arguments(&["inspect", "--format", "capabilities", &path_text]))
+            .expect("capability report should succeed");
+        assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
     }
