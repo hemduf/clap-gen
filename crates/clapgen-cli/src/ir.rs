@@ -7,9 +7,27 @@ use kdl::{KdlDocument, KdlNode, KdlValue};
 use crate::metadata::ParsedMetadata;
 
 const IR_VERSION: u32 = 1;
-const PARAM_FLAGS: &[&str] =
-    &["automatable", "bypass", "enum", "hidden", "modulatable", "periodic", "readonly", "stepped"];
-const AUDIO_FLAGS: &[&str] = &["main", "requires-common-sample-size"];
+const PARAM_FLAGS: &[&str] = &[
+    "automatable",
+    "automatable-per-channel",
+    "automatable-per-key",
+    "automatable-per-note-id",
+    "automatable-per-port",
+    "bypass",
+    "enum",
+    "hidden",
+    "modulatable",
+    "modulatable-per-channel",
+    "modulatable-per-key",
+    "modulatable-per-note-id",
+    "modulatable-per-port",
+    "periodic",
+    "readonly",
+    "requires-process",
+    "stepped",
+];
+const AUDIO_FLAGS: &[&str] =
+    &["main", "prefers-64bits", "requires-common-sample-size", "supports-64bits"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct CanonicalIr {
