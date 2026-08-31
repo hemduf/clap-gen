@@ -12,6 +12,7 @@ mod provenance;
 #[path = "reviewed/mod.rs"]
 mod reviewed;
 
+#[allow(unused_imports)]
 pub(crate) use access::{
     AudioPortIr, Direction, ExtensionIr, FactoryIr, GuiApiIr, NoteNameIr, NotePortIr, ParameterIr,
     PluginIr, PresetFormatIr, PresetLocationIr, ProcessorIr, ResourceIr, StateFieldIr,
@@ -27,6 +28,7 @@ impl ExtensionSet {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) struct CanonicalIr {
     pub(crate) version: u32,
     pub(crate) stable_extensions: ExtensionSet,
@@ -48,7 +50,9 @@ impl fmt::Debug for CanonicalIr {
             .field("note_ports", &self.typed.note_ports.len())
             .field("stable_extensions", &self.stable_extensions.len())
             .field("draft_extensions", &self.draft_extensions.len())
-            .finish()
+            .field("dependencies", &self.dependencies.len())
+            .field("sources", &self.sources.len())
+            .finish_non_exhaustive()
     }
 }
 
@@ -85,6 +89,7 @@ pub(crate) fn capability_report_kdl(ir: &CanonicalIr) -> String {
     reviewed::capability_report_kdl(&ir.semantic)
 }
 
+#[allow(dead_code)]
 impl CanonicalIr {
     pub(crate) const fn plugin(&self) -> &PluginIr {
         &self.typed.plugin
