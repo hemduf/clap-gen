@@ -151,11 +151,8 @@ fn relative_root_path_is_preserved_in_dependencies_and_import_sources() {
     let root = manifest.to_string_lossy().replace('\\', "/");
     let imported = shared.join("common.kdl").to_string_lossy().replace('\\', "/");
     assert_eq!(&[root.as_str(), imported.as_str()], ir.dependencies());
-    let source = ir
-        .sources()
-        .iter()
-        .find(|source| source.key == "parameter:shared")
-        .expect("shared source");
+    let source =
+        ir.sources().iter().find(|source| source.key == "parameter:shared").expect("shared source");
     assert_eq!(imported, source.path);
 
     fs::remove_dir_all(directory).expect("cleanup");
