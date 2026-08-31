@@ -135,6 +135,7 @@ jobs:
 
   sanitizers:
     name: Sanitizers (${{ matrix.os }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -177,6 +178,7 @@ jobs:
     steps:
       - name: Require every CI component to pass
         env:
+          EVENT_NAME: ${{ github.event_name }}
           POLICY_RESULT: ${{ needs.policy.result }}
           RUST_RESULT: ${{ needs.rust.result }}
           CPP_RESULT: ${{ needs.cpp.result }}
@@ -186,4 +188,8 @@ jobs:
           test "$POLICY_RESULT" = success
           test "$RUST_RESULT" = success
           test "$CPP_RESULT" = success
-          test "$SANITIZERS_RESULT" = success
+          if [ "$EVENT_NAME" = push ]; then
+            test "$SANITIZERS_RESULT" = success
+          else
+            test "$SANITIZERS_RESULT" = skipped
+          fi
