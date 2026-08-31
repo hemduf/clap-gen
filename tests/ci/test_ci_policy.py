@@ -38,6 +38,16 @@ class CiPolicyTest(unittest.TestCase):
             self.assertIn(command, workflow)
         self.assertIn(r"C:\Program Files\Cppcheck\cppcheck.exe", workflow)
 
+    def test_sanitizers_run_only_on_main_pushes(self) -> None:
+        workflow = read(".github/workflows/ci.yml")
+        self.assertIn(
+            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            workflow,
+        )
+        self.assertIn("EVENT_NAME: ${{ github.event_name }}", workflow)
+        self.assertIn('test "$SANITIZERS_RESULT" = success', workflow)
+        self.assertIn('test "$SANITIZERS_RESULT" = skipped', workflow)
+
     def test_ci_has_hygiene_cache_and_failure_artifact_retention(self) -> None:
         workflow = read(".github/workflows/ci.yml")
         self.assertIn("concurrency:", workflow)
