@@ -128,11 +128,7 @@ fn load_imports(
         load_imports(&canonical, &display, &parsed, loaded_documents, loaded, stack)?;
         stack.remove(&canonical);
 
-        loaded_documents.push(SourceDocument {
-            display_path: display,
-            source,
-            metadata: parsed,
-        });
+        loaded_documents.push(SourceDocument { display_path: display, source, metadata: parsed });
     }
     Ok(())
 }
