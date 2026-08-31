@@ -52,12 +52,13 @@ fn init_manifest(path: &Path) -> Result<String, String> {
         })?;
     }
 
+    let canonical_manifest = format_metadata(path, DEFAULT_MANIFEST)?;
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
         .map_err(|error| format!("failed to create `{}`: {error}", path.display()))?;
-    file.write_all(DEFAULT_MANIFEST.as_bytes())
+    file.write_all(canonical_manifest.as_bytes())
         .map_err(|error| format!("failed to write `{}`: {error}", path.display()))?;
 
     Ok(format!("created {}", path.display()))
