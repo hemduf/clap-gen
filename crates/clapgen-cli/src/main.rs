@@ -223,13 +223,8 @@ mod tests {
         assert!(ir.starts_with("ir version=1\n"), "{ir}");
         assert!(ir.contains("capabilities {"), "{ir}");
 
-        let capabilities = run(&arguments(&[
-            "inspect",
-            "--format",
-            "capabilities",
-            &path_text,
-        ]))
-        .expect("capability report should succeed");
+        let capabilities = run(&arguments(&["inspect", "--format", "capabilities", &path_text]))
+            .expect("capability report should succeed");
         assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
