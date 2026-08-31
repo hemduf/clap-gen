@@ -30,9 +30,7 @@ fn published_schema_uses_kdl_schema_validation_nodes() {
     });
 
     let schema_prop = find_prop(root, "schema").expect("clapgen.schema must be described");
-    let children = schema_prop
-        .children()
-        .expect("clapgen.schema must have validation children");
+    let children = schema_prop.children().expect("clapgen.schema must have validation children");
     assert!(children.get("type").is_some());
     assert!(children.get("required").is_some());
 }
@@ -51,10 +49,7 @@ fn find_prop<'a>(node: &'a KdlNode, key: &str) -> Option<&'a KdlNode> {
         return Some(node);
     }
 
-    node.children()?
-        .nodes()
-        .iter()
-        .find_map(|child| find_prop(child, key))
+    node.children()?.nodes().iter().find_map(|child| find_prop(child, key))
 }
 
 fn first_string_argument(node: &KdlNode) -> Option<&str> {
