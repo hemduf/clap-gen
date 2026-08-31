@@ -1,0 +1,161 @@
+document {
+    info {
+        title "clap-gen metadata"
+        description "Structural schema for clap-gen KDL 2.0 author metadata"
+        version "1.0.0"
+        license "MIT" spdx="MIT"
+    }
+
+    node "clapgen" {
+        prop "schema" type="string"
+    }
+
+    node "import" {
+        value type="string"
+        prop "optional" type="boolean"
+    }
+
+    node "plugin" {
+        prop "id" type="string"
+        prop "name" type="string"
+        prop "vendor" type="string"
+        prop "version" type="string"
+        prop "url" type="string"
+        prop "manual-url" type="string"
+        prop "support-url" type="string"
+        prop "description" type="string"
+        children {
+            node "feature" {
+                value type="string"
+            }
+        }
+    }
+
+    node "processor" {
+        prop "class" type="string"
+        prop "features" type="string"
+    }
+
+    node "parameters" {
+        children {
+            node "param" {
+                value type="string"
+                prop "id" type="string"
+                prop "name" type="string"
+                prop "min" type="number"
+                prop "max" type="number"
+                prop "default" type="number"
+                prop "flags" type="string"
+                prop "unit" type="string"
+                prop "steps" type="integer"
+            }
+        }
+    }
+
+    node "audio-ports" {
+        children {
+            node "input" {
+                value type="string"
+                prop "id" type="string"
+                prop "name" type="string"
+                prop "channels" type="integer"
+                prop "type" type="string"
+                prop "flags" type="string"
+                prop "in-place-pair" type="string"
+            }
+            node "output" {
+                value type="string"
+                prop "id" type="string"
+                prop "name" type="string"
+                prop "channels" type="integer"
+                prop "type" type="string"
+                prop "flags" type="string"
+                prop "in-place-pair" type="string"
+            }
+        }
+    }
+
+    node "note-ports" {
+        children {
+            node "input" {
+                value type="string"
+                prop "id" type="string"
+                prop "name" type="string"
+                prop "dialects" type="string"
+                prop "preferred" type="string"
+            }
+            node "output" {
+                value type="string"
+                prop "id" type="string"
+                prop "name" type="string"
+                prop "dialects" type="string"
+                prop "preferred" type="string"
+            }
+            node "note-name" {
+                value type="string"
+                prop "key" type="integer"
+                prop "channel" type="integer"
+                prop "port" type="string"
+            }
+        }
+    }
+
+    node "state" {
+        children {
+            node "field" {
+                value type="string"
+                prop "name" type="string"
+                prop "type" type="string"
+                prop "default" type="string"
+                prop "tag" type="string"
+            }
+        }
+    }
+
+    node "gui" {
+        children {
+            node "api" {
+                value type="string"
+                prop "name" type="string"
+                prop "floating" type="boolean"
+                prop "embedded" type="boolean"
+            }
+            node "resource" {
+                value type="string"
+                prop "path" type="string"
+                prop "mime" type="string"
+            }
+        }
+    }
+
+    node "presets" {
+        children {
+            node "location" {
+                value type="string"
+                prop "kind" type="string"
+                prop "path" type="string"
+            }
+            node "format" {
+                value type="string"
+                prop "extension" type="string"
+                prop "mime" type="string"
+            }
+        }
+    }
+
+    node "extensions" {
+        children {
+            node "namespace" {
+                value type="string"
+            }
+            node "enable" {
+                value type="string"
+                prop "id" type="string"
+                prop "version" type="string"
+                prop "draft" type="boolean"
+            }
+        }
+    }
+
+    other-nodes-allowed #false
+}
