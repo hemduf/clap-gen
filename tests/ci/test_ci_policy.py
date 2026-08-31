@@ -91,8 +91,13 @@ class CiPolicyTest(unittest.TestCase):
         self.assertIn(
             "github.event.comment.user.login == github.repository_owner", workflow
         )
+        self.assertIn("checks: read", workflow)
         self.assertIn("contents: write", workflow)
         self.assertIn("pull-requests: write", workflow)
+        self.assertIn("gh pr checks", workflow)
+        self.assertIn("Required CI gate", workflow)
+        self.assertIn("SUCCESS", workflow)
+        self.assertIn("Required CI gate must pass before auto-merge", workflow)
         self.assertIn("gh pr merge --auto --squash", workflow)
         self.assertIn(".allow_auto_merge", workflow)
         self.assertIn("head.repo.full_name", workflow)
