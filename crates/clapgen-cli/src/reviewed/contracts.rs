@@ -53,6 +53,30 @@ fn typed_ir_is_available_without_serialization_or_reparsing() {
 }
 
 #[test]
+fn stable_core_extension_exposes_pinned_sdk_header() {
+    let directory = temporary_directory("stable-core-header");
+    fs::create_dir_all(&directory).expect("directory");
+    let manifest = directory.join("plugin.kdl");
+    fs::write(
+        &manifest,
+        root_manifest(
+            "parameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions { enable \"clap.params\" }\n",
+        ),
+    )
+    .expect("manifest");
+
+    let ir = build_file(&manifest).expect("IR should build");
+    let params = ir
+        .stable_extension_items()
+        .iter()
+        .find(|extension| extension.id == "clap.params")
+        .expect("params extension");
+    assert_eq!(Some("clap/ext/params.h"), params.header);
+
+    fs::remove_dir_all(directory).expect("cleanup");
+}
+
+#[test]
 fn transitive_imports_are_exposed_as_deterministic_dependencies() {
     let directory = temporary_directory("dependencies");
     fs::create_dir_all(directory.join("shared/nested")).expect("directory");
