@@ -3,6 +3,8 @@
 mod metadata_cpp;
 mod outputs;
 mod render;
+mod resources_cpp;
+mod source_map;
 
 pub(crate) use outputs::{GeneratedFile, GenerationPlan, OUTPUT_NAMES};
 
