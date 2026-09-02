@@ -31,7 +31,7 @@ fn temp_entries(path: &Path) -> Vec<String> {
     fs::read_dir(path)
         .expect("output directory should be readable")
         .map(|entry| entry.expect("directory entry").file_name().to_string_lossy().into_owned())
-        .filter(|name| name.starts_with(".clapgen-") || name.ends_with(".tmp"))
+        .filter(|name| name.starts_with(".clapgen-"))
         .collect()
 }
 
