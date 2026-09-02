@@ -1,8 +1,6 @@
 use crate::ir::CanonicalIr;
 
-use super::{
-    GeneratedFile, GenerationPlan, OUTPUT_NAMES, metadata_cpp, resources_cpp, source_map,
-};
+use super::{GeneratedFile, GenerationPlan, OUTPUT_NAMES, metadata_cpp, resources_cpp, source_map};
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
     let metadata_header = metadata_cpp::header(ir).into_bytes();
