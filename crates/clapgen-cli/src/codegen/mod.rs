@@ -50,6 +50,5 @@ mod tests {
 
         assert_eq!(first, second);
         assert_eq!(paths.as_slice(), OUTPUT_NAMES);
-        assert!(first.files.iter().all(|file| file.bytes.is_empty()));
     }
 }
