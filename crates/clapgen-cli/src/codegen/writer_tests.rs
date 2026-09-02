@@ -18,10 +18,7 @@ fn plan(marker: &str) -> GenerationPlan {
         files: OUTPUT_NAMES
             .iter()
             .copied()
-            .map(|path| GeneratedFile {
-                path,
-                bytes: format!("{path}:{marker}\n").into_bytes(),
-            })
+            .map(|path| GeneratedFile { path, bytes: format!("{path}:{marker}\n").into_bytes() })
             .collect(),
     }
 }
@@ -90,7 +87,10 @@ fn no_op_generation_preserves_every_output_timestamp() {
     for (path, modified) in before {
         assert_eq!(
             modified,
-            fs::metadata(directory.join(path)).expect("metadata").modified().expect("modified time"),
+            fs::metadata(directory.join(path))
+                .expect("metadata")
+                .modified()
+                .expect("modified time"),
             "mtime changed for {path}"
         );
     }
@@ -169,7 +169,10 @@ fn a_single_changed_output_republishes_manifest_last_but_leaves_other_files_unto
         }
         assert_eq!(
             modified,
-            fs::metadata(directory.join(path)).expect("metadata").modified().expect("modified time"),
+            fs::metadata(directory.join(path))
+                .expect("metadata")
+                .modified()
+                .expect("modified time"),
             "unchanged output was rewritten: {path}"
         );
     }
