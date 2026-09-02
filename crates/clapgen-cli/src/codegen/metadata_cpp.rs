@@ -94,12 +94,18 @@ struct ExtensionMetadata {\n\
     const char* header;\n\
 };\n\n",
     );
-    output.push_str("extern const PluginMetadata plugin;\nextern const ProcessorMetadata processor;\n");
+    output.push_str(
+        "extern const PluginMetadata plugin;\nextern const ProcessorMetadata processor;\n",
+    );
     output.push_str(&array_declaration("ParameterMetadata", "parameters", ir.parameters().len()));
     output.push_str(&array_declaration("AudioPortMetadata", "audio_ports", ir.audio_ports().len()));
     output.push_str(&array_declaration("NotePortMetadata", "note_ports", ir.note_ports().len()));
     output.push_str(&array_declaration("NoteNameMetadata", "note_names", ir.note_names().len()));
-    output.push_str(&array_declaration("StateFieldMetadata", "state_fields", ir.state_fields().len()));
+    output.push_str(&array_declaration(
+        "StateFieldMetadata",
+        "state_fields",
+        ir.state_fields().len(),
+    ));
     output.push_str(&array_declaration("GuiApiMetadata", "gui_apis", ir.gui_apis().len()));
     output.push_str(&array_declaration(
         "PresetLocationMetadata",
