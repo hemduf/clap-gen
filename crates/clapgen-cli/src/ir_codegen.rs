@@ -52,7 +52,7 @@ mod tests {
     fn fixed_output_contract_is_stable() {
         assert_eq!(
             OUTPUT_NAMES,
-            [
+            &[
                 "clapgen.d",
                 "clapgen.manifest.kdl",
                 "clapgen.sources.kdl",
@@ -71,12 +71,10 @@ mod tests {
         let ir = ir();
         let first = render(&ir);
         let second = render(&ir);
+        let paths = first.files.iter().map(|file| file.path).collect::<Vec<_>>();
 
         assert_eq!(first, second);
-        assert_eq!(
-            first.files.iter().map(|file| file.path).collect::<Vec<_>>(),
-            OUTPUT_NAMES
-        );
+        assert_eq!(paths.as_slice(), OUTPUT_NAMES);
         assert!(first.files.iter().all(|file| file.bytes.is_empty()));
     }
 }
