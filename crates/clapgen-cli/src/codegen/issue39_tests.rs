@@ -98,6 +98,10 @@ fn portable_dependency_paths_normalize_windows_separators_and_escape_depfile_tok
     assert_eq!("C:/Program Files/Acme/plugin #$.kdl", normalized);
     assert_eq!(r"C\:/Program\ Files/Acme/plugin\ \#$$.kdl", depfile_escape(&normalized));
 
+    let drive_relative = normalize_path(r"C:relative\plugin.kdl");
+    assert_eq!("C:relative/plugin.kdl", drive_relative);
+    assert_eq!(r"C\:relative/plugin.kdl", depfile_escape(&drive_relative));
+
     assert_eq!("plugin.kdl", normalize_path(r"config\..\plugin.kdl"));
     assert_eq!(r"dir/my\ \#file$$.kdl", depfile_escape("dir/my #file$.kdl"));
 }
