@@ -99,7 +99,8 @@ mod tests {
         assert!(source.contains("notes"), "{source}");
         assert!(source.contains("mode"), "{source}");
 
-        for forbidden in ["clap_entry", "get_extension", "activate(", "process(", "plugin_factory"] {
+        for forbidden in ["clap_entry", "get_extension", "activate(", "process(", "plugin_factory"]
+        {
             assert!(!header.contains(forbidden), "unexpected `{forbidden}` in header:\n{header}");
             assert!(!source.contains(forbidden), "unexpected `{forbidden}` in source:\n{source}");
         }
@@ -112,10 +113,9 @@ mod tests {
     #[test]
     fn adding_params_capability_changes_only_metadata_surfaces() {
         let base = render(&ir_from(SOURCE));
-        let with_params = render(&ir_from(&SOURCE.replace(
-            "extensions {}",
-            "extensions { enable \"clap.params\" }",
-        )));
+        let with_params = render(&ir_from(
+            &SOURCE.replace("extensions {}", "extensions { enable \"clap.params\" }"),
+        ));
 
         let changed = base
             .files
