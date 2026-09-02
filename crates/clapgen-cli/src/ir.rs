@@ -5,7 +5,7 @@ use crate::metadata::ParsedMetadata;
 
 #[path = "reviewed/capabilities.rs"]
 mod capabilities;
-#[path = "ir_codegen.rs"]
+#[path = "codegen/mod.rs"]
 pub(crate) mod codegen;
 #[path = "reviewed/provenance.rs"]
 mod provenance;
