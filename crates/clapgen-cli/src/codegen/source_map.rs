@@ -19,7 +19,7 @@ pub(crate) fn render(ir: &CanonicalIr) -> String {
     output
 }
 
-fn kdl_string(value: &str) -> String {
+pub(super) fn kdl_string(value: &str) -> String {
     let mut output = String::with_capacity(value.len() + 2);
     output.push('"');
     for character in value.chars() {
