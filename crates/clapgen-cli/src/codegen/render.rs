@@ -1,18 +1,24 @@
 use crate::ir::CanonicalIr;
 
-use super::{GeneratedFile, GenerationPlan, OUTPUT_NAMES, metadata_cpp};
+use super::{
+    GeneratedFile, GenerationPlan, OUTPUT_NAMES, metadata_cpp, resources_cpp, source_map,
+};
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
     let metadata_header = metadata_cpp::header(ir).into_bytes();
     let metadata_source = metadata_cpp::source(ir).into_bytes();
+    let resources_header = resources_cpp::header(ir).into_bytes();
+    let sources = source_map::render(ir).into_bytes();
     let files = OUTPUT_NAMES
         .iter()
         .copied()
         .map(|path| GeneratedFile {
             path,
             bytes: match path {
+                "clapgen.sources.kdl" => sources.clone(),
                 "clapgen_metadata.cpp" => metadata_source.clone(),
                 "clapgen_metadata.hpp" => metadata_header.clone(),
+                "clapgen_resources.hpp" => resources_header.clone(),
                 _ => Vec::new(),
             },
         })
