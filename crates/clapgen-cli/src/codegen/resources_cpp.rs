@@ -10,11 +10,7 @@ pub(crate) fn header(ir: &CanonicalIr) -> String {
 
     let mut output = String::from(BANNER);
     output.push_str(
-        "#pragma once\n\n#include <array>\n\nnamespace clapgen::generated {\n\n\
-struct ResourceMetadata {\n\
-    const char* path;\n\
-    const char* mime;\n\
-};\n\n",
+        "#pragma once\n\n#include <array>\n\nnamespace clapgen::generated {\n\nstruct ResourceMetadata {\n    const char* path;\n    const char* mime;\n};\n\n",
     );
     writeln!(
         &mut output,
