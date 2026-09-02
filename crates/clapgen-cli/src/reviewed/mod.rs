@@ -9,7 +9,13 @@ use crate::metadata::{ParsedMetadata, parse_metadata};
 
 mod legacy {
     include!("ir.rs");
+    pub(super) mod access;
 }
+
+pub(crate) use legacy::access::{
+    AudioPortIr, Direction, ExtensionIr, FactoryIr, GuiApiIr, NoteNameIr, NotePortIr, ParameterIr,
+    PluginIr, PresetFormatIr, PresetLocationIr, ProcessorIr, ResourceIr, StateFieldIr, TypedIr,
+};
 
 const CLAP_SDK_PIN: &str = "a47f6badb49d948fd009998f28309cdab78979c9";
 
@@ -135,6 +141,10 @@ pub(crate) fn build_ir(
         inner,
         replacements: plan.replacements,
     })
+}
+
+pub(crate) fn typed_ir(ir: &CanonicalIr) -> TypedIr {
+    legacy::access::build(&ir.inner, &ir.replacements)
 }
 
 pub(crate) fn serialize_ir_kdl(ir: &CanonicalIr) -> String {
