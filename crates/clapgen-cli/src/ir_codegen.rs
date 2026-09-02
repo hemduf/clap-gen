@@ -35,10 +35,10 @@ pub(crate) fn render(_ir: &CanonicalIr) -> GenerationPlan {
 mod tests {
     use std::path::Path;
 
+    use crate::ir::build_ir;
     use crate::metadata::parse_metadata;
 
-    use super::{OUTPUT_NAMES, render};
-    use crate::ir::build_ir;
+    use super::{render, OUTPUT_NAMES};
 
     const SOURCE: &str = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.codegen\" name=\"Codegen\" vendor=\"Example\" version=\"1.0.0\"\nprocessor class=\"CodegenProcessor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n";
 
