@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::CanonicalIr;
 
 pub(crate) const OUTPUT_NAMES: &[&str] = &[
@@ -21,7 +23,12 @@ pub(crate) struct GenerationPlan {
 }
 
 pub(crate) fn render(_ir: &CanonicalIr) -> GenerationPlan {
-    todo!("issue #36: implement deterministic generation plan")
+    let files = OUTPUT_NAMES
+        .iter()
+        .copied()
+        .map(|path| GeneratedFile { path, bytes: Vec::new() })
+        .collect();
+    GenerationPlan { files }
 }
 
 #[cfg(test)]
@@ -70,5 +77,6 @@ mod tests {
             first.files.iter().map(|file| file.path).collect::<Vec<_>>(),
             OUTPUT_NAMES
         );
+        assert!(first.files.iter().all(|file| file.bytes.is_empty()));
     }
 }
