@@ -1,0 +1,9 @@
+generation-manifest version=1 {
+    output "clapgen.d"
+    output "clapgen.manifest.kdl"
+    output "clapgen.sources.kdl"
+    output "clapgen_metadata.cpp"
+    output "clapgen_metadata.hpp"
+    output "clapgen_resources.hpp"
+    dependency "plugin.kdl"
+}
