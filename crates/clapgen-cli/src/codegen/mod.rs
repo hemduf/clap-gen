@@ -8,6 +8,7 @@ mod outputs;
 mod render;
 mod resources_cpp;
 mod source_map;
+mod writer;
 
 pub(crate) use outputs::{GeneratedFile, GenerationPlan, OUTPUT_NAMES};
 
@@ -19,3 +20,5 @@ pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
 mod issue39_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod writer_tests;
