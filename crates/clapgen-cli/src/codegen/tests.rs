@@ -118,9 +118,8 @@ fn metadata_renderer_emits_deterministic_data_only_cpp() {
 #[test]
 fn adding_params_capability_changes_only_metadata_surfaces() {
     let base = render(&ir_from(SOURCE));
-    let with_params = render(&ir_from(
-        &SOURCE.replace("extensions {}", "extensions { enable \"clap.params\" }"),
-    ));
+    let with_params =
+        render(&ir_from(&SOURCE.replace("extensions {}", "extensions { enable \"clap.params\" }")));
 
     let changed = base
         .files
@@ -194,10 +193,8 @@ fn imported_semantic_nodes_keep_relative_provenance_in_source_map() {
     let plan = render(&build_file(&manifest));
     let sources = generated_text(&plan, "clapgen.sources.kdl");
     let imported_path = shared.join("common.kdl").to_string_lossy().replace('\\', "/");
-    let current_directory = std::env::current_dir()
-        .expect("current directory")
-        .to_string_lossy()
-        .replace('\\', "/");
+    let current_directory =
+        std::env::current_dir().expect("current directory").to_string_lossy().replace('\\', "/");
 
     kdl::KdlDocument::parse_v2(sources).expect("source map must remain valid KDL 2.0");
     assert!(
@@ -217,8 +214,7 @@ fn imported_semantic_nodes_keep_relative_provenance_in_source_map() {
     let parameter = sources.find("key=\"parameter:shared\"").expect("parameter entry");
     let plugin = sources.find("key=\"plugin\"").expect("plugin entry");
     let processor = sources.find("key=\"processor\"").expect("processor entry");
-    let resource =
-        sources.find("key=\"resource:../assets/shared.svg\"").expect("resource entry");
+    let resource = sources.find("key=\"resource:../assets/shared.svg\"").expect("resource entry");
     assert!(parameter < plugin && plugin < processor && processor < resource, "{sources}");
 
     fs::remove_dir_all(directory).expect("temporary directory should be removable");
@@ -226,10 +222,7 @@ fn imported_semantic_nodes_keep_relative_provenance_in_source_map() {
 
 #[test]
 fn source_map_escapes_semantic_keys_as_valid_kdl_strings() {
-    let source = RESOURCE_SOURCE.replace(
-        "assets/panel.svg",
-        "assets/panel \\\"front\\\".svg",
-    );
+    let source = RESOURCE_SOURCE.replace("assets/panel.svg", "assets/panel \\\"front\\\".svg");
     let plan = render(&ir_from(&source));
     let sources = generated_text(&plan, "clapgen.sources.kdl");
 
