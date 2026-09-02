@@ -116,7 +116,7 @@ fn metadata_renderer_emits_deterministic_data_only_cpp() {
 }
 
 #[test]
-fn adding_params_capability_changes_only_metadata_surfaces() {
+fn adding_params_capability_changes_only_expected_surfaces() {
     let base = render(&ir_from(SOURCE));
     let with_params =
         render(&ir_from(&SOURCE.replace("extensions {}", "extensions { enable \"clap.params\" }")));
@@ -127,12 +127,17 @@ fn adding_params_capability_changes_only_metadata_surfaces() {
         .zip(&with_params.files)
         .filter_map(|(before, after)| (before.bytes != after.bytes).then_some(before.path))
         .collect::<Vec<_>>();
-    assert_eq!(changed, ["clapgen_metadata.cpp", "clapgen_metadata.hpp"]);
+    assert_eq!(
+        changed,
+        ["clapgen.sources.kdl", "clapgen_metadata.cpp", "clapgen_metadata.hpp"]
+    );
 
     let base_header = generated_text(&base, "clapgen_metadata.hpp");
     let params_header = generated_text(&with_params, "clapgen_metadata.hpp");
     assert!(!base_header.contains("clap/ext/params.h"), "{base_header}");
     assert!(params_header.contains("#include <clap/ext/params.h>"), "{params_header}");
+    let params_sources = generated_text(&with_params, "clapgen.sources.kdl");
+    assert!(params_sources.contains("key=\"extension:clap.params\""), "{params_sources}");
 }
 
 #[test]
