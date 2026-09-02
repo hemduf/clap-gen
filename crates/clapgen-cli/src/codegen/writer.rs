@@ -36,10 +36,7 @@ where
         format!("failed to create generation output directory `{}`: {error}", directory.display())
     })?;
 
-    let staged = match stage_changed_files(plan, directory, &changed) {
-        Ok(staged) => staged,
-        Err(error) => return Err(error),
-    };
+    let staged = stage_changed_files(plan, directory, &changed)?;
 
     let manifest_path = directory.join(MANIFEST);
     if let Err(error) = remove_if_exists(&manifest_path) {
@@ -167,7 +164,7 @@ fn replace_complete(temporary: &Path, destination: &Path) -> Result<(), String> 
     match fs::rename(temporary, destination) {
         Ok(()) => Ok(()),
         Err(first_error) if destination.exists() => {
-            replace_existing_with_backup(temporary, destination, first_error)
+            replace_existing_with_backup(temporary, destination, &first_error)
         }
         Err(error) => {
             Err(format!("failed to publish generated output `{}`: {error}", destination.display()))
@@ -178,7 +175,7 @@ fn replace_complete(temporary: &Path, destination: &Path) -> Result<(), String> 
 fn replace_existing_with_backup(
     temporary: &Path,
     destination: &Path,
-    first_error: std::io::Error,
+    first_error: &std::io::Error,
 ) -> Result<(), String> {
     let backup = backup_path(destination);
     fs::rename(destination, &backup).map_err(|backup_error| {
