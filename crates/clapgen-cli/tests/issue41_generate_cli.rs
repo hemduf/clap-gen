@@ -178,7 +178,7 @@ fn generate_preserves_author_location_in_semantic_validation_diagnostics() {
         .expect("clapgen generate should run");
     assert!(!output.status.success(), "invalid semantic metadata unexpectedly generated");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains(&format!("{}:5:", manifest.display())), "{stderr}");
+    assert!(stderr.contains(&format!("{}:6:", manifest.display())), "{stderr}");
     assert!(stderr.contains("parameter `gain` has invalid range/default"), "{stderr}");
     assert!(!out.exists(), "semantic validation failure created the output directory");
 
