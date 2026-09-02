@@ -64,6 +64,15 @@ mod tests {
     }
 
     #[test]
+    fn metadata_cpp_matches_the_golden_file() {
+        let plan = render(&ir_from(SOURCE));
+        assert_eq!(
+            include_str!("../../tests/golden/issue37-metadata.cpp"),
+            generated_text(&plan, "clapgen_metadata.cpp")
+        );
+    }
+
+    #[test]
     fn metadata_renderer_emits_deterministic_data_only_cpp() {
         let plan = render(&ir_from(RICH_SOURCE));
         let header = generated_text(&plan, "clapgen_metadata.hpp");
