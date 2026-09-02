@@ -117,7 +117,11 @@ fn generate_accepts_only_the_documented_argument_shape() {
     let out = root.join("build");
 
     for arguments in [
-        vec!["generate".to_owned(), "--metadata".to_owned(), manifest.to_string_lossy().into_owned()],
+        vec![
+            "generate".to_owned(),
+            "--metadata".to_owned(),
+            manifest.to_string_lossy().into_owned(),
+        ],
         vec![
             "generate".to_owned(),
             "--out".to_owned(),
