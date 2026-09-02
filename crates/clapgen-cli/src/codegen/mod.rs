@@ -13,7 +13,7 @@ mod tests {
     use crate::ir::build_ir;
     use crate::metadata::parse_metadata;
 
-    use super::{render, OUTPUT_NAMES};
+    use super::{OUTPUT_NAMES, render};
 
     const SOURCE: &str = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.codegen\" name=\"Codegen\" vendor=\"Example\" version=\"1.0.0\"\nprocessor class=\"CodegenProcessor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n";
 
