@@ -13,7 +13,8 @@ fn temporary_directory(name: &str) -> PathBuf {
 }
 
 fn run(command: &mut Command, context: &str) {
-    let output = command.output().unwrap_or_else(|error| panic!("failed to run {context}: {error}"));
+    let output =
+        command.output().unwrap_or_else(|error| panic!("failed to run {context}: {error}"));
     assert!(
         output.status.success(),
         "{context} failed\nstdout:\n{}\nstderr:\n{}",

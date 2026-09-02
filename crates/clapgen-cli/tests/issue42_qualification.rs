@@ -38,7 +38,8 @@ fn write_project(root: &Path, extension: bool) -> (PathBuf, PathBuf) {
     )
     .expect("imported metadata");
     let manifest = source.join("plugin.kdl");
-    let extensions = if extension { "extensions { enable \"clap.params\" }" } else { "extensions {}" };
+    let extensions =
+        if extension { "extensions { enable \"clap.params\" }" } else { "extensions {}" };
     fs::write(
         &manifest,
         format!(
@@ -92,7 +93,10 @@ fn absolute_metadata_paths_produce_build_relative_depfiles_without_leaking_machi
         generation_manifest.contains("dependency \"shared metadata/common.kdl\""),
         "{generation_manifest}"
     );
-    assert!(generation_manifest.contains("dependency \"assets/panel.svg\""), "{generation_manifest}");
+    assert!(
+        generation_manifest.contains("dependency \"assets/panel.svg\""),
+        "{generation_manifest}"
+    );
     assert!(!generation_manifest.contains(&root_text), "{generation_manifest}");
     assert!(!source_map.contains(&root_text), "{source_map}");
     assert_eq!(source, manifest.parent().expect("source directory"));
@@ -124,10 +128,7 @@ fn repeated_generation_is_byte_identical_and_capability_changes_are_narrowly_sco
         .filter_map(|((name, before), (_, after))| (before != after).then_some(*name))
         .collect::<Vec<_>>();
 
-    assert_eq!(
-        changed,
-        ["clapgen.sources.kdl", "clapgen_metadata.cpp", "clapgen_metadata.hpp"]
-    );
+    assert_eq!(changed, ["clapgen.sources.kdl", "clapgen_metadata.cpp", "clapgen_metadata.hpp"]);
     for (name, bytes) in &second {
         let text = String::from_utf8_lossy(bytes);
         for forbidden in ["Generated at", "timestamp", "hostname", "pid=", ".clapgen-"] {
