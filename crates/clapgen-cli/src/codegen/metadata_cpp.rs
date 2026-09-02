@@ -100,7 +100,9 @@ pub(crate) fn header(ir: &CanonicalIr) -> String {
 }
 
 fn append_array_declarations(output: &mut String, ir: &CanonicalIr) {
-    output.push_str("extern const PluginMetadata plugin;\nextern const ProcessorMetadata processor;\n");
+    output.push_str(
+        "extern const PluginMetadata plugin;\nextern const ProcessorMetadata processor;\n",
+    );
     append_array_declaration(output, "ParameterMetadata", "parameters", ir.parameters().len());
     append_array_declaration(output, "AudioPortMetadata", "audio_ports", ir.audio_ports().len());
     append_array_declaration(output, "NotePortMetadata", "note_ports", ir.note_ports().len());
