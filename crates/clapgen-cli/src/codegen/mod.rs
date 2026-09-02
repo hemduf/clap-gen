@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+mod dependency;
+mod depfile;
+mod manifest;
 mod metadata_cpp;
 mod outputs;
 mod render;
@@ -12,5 +15,7 @@ pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
     render::render(ir)
 }
 
+#[cfg(test)]
+mod issue39_tests;
 #[cfg(test)]
 mod tests;
