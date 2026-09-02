@@ -4,7 +4,10 @@ mod outputs;
 mod render;
 
 pub(crate) use outputs::{GeneratedFile, GenerationPlan, OUTPUT_NAMES};
-pub(crate) use render::render;
+
+pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
+    render::render(ir)
+}
 
 #[cfg(test)]
 mod tests {
