@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod metadata_cpp;
 mod outputs;
 mod render;
 
