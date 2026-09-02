@@ -127,10 +127,7 @@ fn adding_params_capability_changes_only_expected_surfaces() {
         .zip(&with_params.files)
         .filter_map(|(before, after)| (before.bytes != after.bytes).then_some(before.path))
         .collect::<Vec<_>>();
-    assert_eq!(
-        changed,
-        ["clapgen.sources.kdl", "clapgen_metadata.cpp", "clapgen_metadata.hpp"]
-    );
+    assert_eq!(changed, ["clapgen.sources.kdl", "clapgen_metadata.cpp", "clapgen_metadata.hpp"]);
 
     let base_header = generated_text(&base, "clapgen_metadata.hpp");
     let params_header = generated_text(&with_params, "clapgen_metadata.hpp");
