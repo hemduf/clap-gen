@@ -3,7 +3,11 @@ use std::collections::BTreeSet;
 use crate::ir::CanonicalIr;
 
 pub(crate) fn collect(ir: &CanonicalIr) -> Vec<String> {
-    let mut dependencies = ir.dependencies().iter().map(|path| normalize_path(path)).collect::<BTreeSet<_>>();
+    let mut dependencies = ir
+        .dependencies()
+        .iter()
+        .map(|path| normalize_path(path))
+        .collect::<BTreeSet<_>>();
     for source in ir.sources() {
         let Some(resource) = source.key.strip_prefix("resource:") else {
             continue;
@@ -81,17 +85,22 @@ fn split_prefix(value: &str) -> (String, &str) {
         return ("/".to_owned(), remainder);
     }
     let bytes = value.as_bytes();
-    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
-        let prefix = value[..2].to_owned();
-        let remainder = value[2..].strip_prefix('/').unwrap_or(&value[2..]);
-        return (prefix, remainder);
+    if bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && bytes[2] == b'/'
+    {
+        return (value[..2].to_owned(), &value[3..]);
     }
     (String::new(), value)
 }
 
 fn is_absolute_like(value: &str) -> bool {
     let normalized = value.replace('\\', "/");
+    let bytes = normalized.as_bytes();
     normalized.starts_with('/')
-        || normalized.starts_with("//")
-        || normalized.as_bytes().get(1).is_some_and(|value| *value == b':')
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && bytes[2] == b'/')
 }
