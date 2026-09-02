@@ -22,7 +22,7 @@ pub(crate) fn normalize_path(value: &str) -> String {
         match part {
             "" | "." => {}
             ".." => {
-                if parts.last().is_some_and(|part| part != "..") {
+                if parts.last().is_some_and(|part| *part != "..") {
                     parts.pop();
                 } else if prefix.is_empty() {
                     parts.push("..");
