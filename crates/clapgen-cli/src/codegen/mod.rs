@@ -10,10 +10,16 @@ mod resources_cpp;
 mod source_map;
 mod writer;
 
+use std::path::Path;
+
 pub(crate) use outputs::{GeneratedFile, GenerationPlan, OUTPUT_NAMES};
 
 pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
     render::render(ir)
+}
+
+pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), String> {
+    writer::write(plan, directory)
 }
 
 #[cfg(test)]
