@@ -52,7 +52,9 @@ where
             cleanup_temporary_files(&staged);
             return Err(error);
         }
-        if let Err(error) = replace_complete(&staged_file.temporary, &directory.join(staged_file.path)) {
+        if let Err(error) =
+            replace_complete(&staged_file.temporary, &directory.join(staged_file.path))
+        {
             cleanup_temporary_files(&staged);
             return Err(error);
         }
@@ -97,7 +99,10 @@ fn changed_paths(plan: &GenerationPlan, directory: &Path) -> Result<Vec<&'static
             Ok(_) => changed.push(file.path),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => changed.push(file.path),
             Err(error) => {
-                return Err(format!("failed to read generated output `{}`: {error}", path.display()));
+                return Err(format!(
+                    "failed to read generated output `{}`: {error}",
+                    path.display()
+                ));
             }
         }
     }
@@ -129,10 +134,8 @@ fn stage_changed_files(
 fn stage_file(directory: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
     for _ in 0..1024 {
         let nonce = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let temporary = directory.join(format!(
-            ".clapgen-{name}-{}-{nonce}.tmp",
-            std::process::id()
-        ));
+        let temporary =
+            directory.join(format!(".clapgen-{name}-{}-{nonce}.tmp", std::process::id()));
         match OpenOptions::new().write(true).create_new(true).open(&temporary) {
             Ok(mut file) => {
                 if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
@@ -166,10 +169,9 @@ fn replace_complete(temporary: &Path, destination: &Path) -> Result<(), String> 
         Err(first_error) if destination.exists() => {
             replace_existing_with_backup(temporary, destination, first_error)
         }
-        Err(error) => Err(format!(
-            "failed to publish generated output `{}`: {error}",
-            destination.display()
-        )),
+        Err(error) => {
+            Err(format!("failed to publish generated output `{}`: {error}", destination.display()))
+        }
     }
 }
 
@@ -207,16 +209,13 @@ fn replace_existing_with_backup(
 }
 
 fn backup_path(destination: &Path) -> PathBuf {
-    let name = destination.file_name().map_or_else(
-        || "generated".to_owned(),
-        |name| name.to_string_lossy().into_owned(),
-    );
+    let name = destination
+        .file_name()
+        .map_or_else(|| "generated".to_owned(), |name| name.to_string_lossy().into_owned());
     for _ in 0..1024 {
         let nonce = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let candidate = destination.with_file_name(format!(
-            ".clapgen-{name}-{}-{nonce}.backup",
-            std::process::id()
-        ));
+        let candidate = destination
+            .with_file_name(format!(".clapgen-{name}-{}-{nonce}.backup", std::process::id()));
         if !candidate.exists() {
             return candidate;
         }
@@ -228,7 +227,9 @@ fn remove_if_exists(path: &Path) -> Result<(), String> {
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(format!("failed to invalidate generation manifest `{}`: {error}", path.display())),
+        Err(error) => {
+            Err(format!("failed to invalidate generation manifest `{}`: {error}", path.display()))
+        }
     }
 }
 
