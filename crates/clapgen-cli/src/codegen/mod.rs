@@ -56,6 +56,8 @@ mod issue59_tests;
 #[cfg(test)]
 mod issue60_tests;
 #[cfg(test)]
+mod issue61_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod writer_tests;

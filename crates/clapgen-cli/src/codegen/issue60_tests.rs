@@ -32,7 +32,6 @@ fn issue60_generates_one_constant_initialized_immutable_factory() {
         "constinit const clap_plugin_factory_t generated_plugin_factory{",
         ".get_plugin_count = factory_get_plugin_count,",
         ".get_plugin_descriptor = factory_get_plugin_descriptor,",
-        ".create_plugin = nullptr,",
     ] {
         assert!(entry.contains(required), "missing `{required}`:\n{entry}");
     }
