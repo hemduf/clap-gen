@@ -1,0 +1,5 @@
+source-map version=1 {
+    source key="plugin" path="plugin.kdl" line=2 column=1
+    source key="processor" path="plugin.kdl" line=3 column=1
+    source key="resource:assets/panel.svg" path="plugin.kdl" line=9 column=5
+}

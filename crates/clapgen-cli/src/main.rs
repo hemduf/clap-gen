@@ -11,10 +11,10 @@ use std::process::ExitCode;
 
 use compat::compare as compare_compat;
 use ids::{allocate as allocate_id, rename as rename_id, tombstone as tombstone_id};
-use ir::{CanonicalIr, build_ir, capability_report_kdl, serialize_ir_kdl};
+use ir::{CanonicalIr, build_ir, capability_report_kdl, codegen, serialize_ir_kdl};
 use metadata::{DEFAULT_MANIFEST, format_metadata, parse_metadata};
 
-const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  ids allocate PATH KIND KEY     Allocate or return an immutable numeric CLAP ID\n  ids rename PATH KIND OLD NEW   Rename a registry symbol without changing its numeric ID\n  ids tombstone PATH KIND KEY    Permanently retire an allocated ID\n  diff BASELINE CURRENT          Report compatibility changes as deterministic text\n  diff --format json BASELINE CURRENT\n                                 Report compatibility changes as deterministic JSON\n  check-compat BASELINE CURRENT  Fail when a forbidden compatibility change is detected\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
+const HELP: &str = "Usage: clapgen <COMMAND>\n\nCommands:\n  init [PATH]                    Create canonical KDL 2.0 metadata\n  fmt [--check] PATH            Format and validate metadata syntax\n  deps PATH                      Print metadata import dependencies\n  validate PATH                  Compile metadata to canonical IR and validate semantics\n  generate --metadata <file> --out <build-dir>\n                                 Generate deterministic build-tree outputs\n  inspect --format kdl PATH      Print canonical versioned IR as KDL\n  inspect --format capabilities PATH\n                                 Print machine-readable capability report as KDL\n  ids allocate PATH KIND KEY     Allocate or return an immutable numeric CLAP ID\n  ids rename PATH KIND OLD NEW   Rename a registry symbol without changing its numeric ID\n  ids tombstone PATH KIND KEY    Permanently retire an allocated ID\n  diff BASELINE CURRENT          Report compatibility changes as deterministic text\n  diff --format json BASELINE CURRENT\n                                 Report compatibility changes as deterministic JSON\n  check-compat BASELINE CURRENT  Fail when a forbidden compatibility change is detected\n  doctor                         Check the bootstrap toolchain contract\n  help                           Print this help\n\nOptions:\n  -h, --help       Print help\n  -V, --version    Print version";
 
 fn main() -> ExitCode {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
@@ -47,6 +47,11 @@ fn run(arguments: &[String]) -> Result<String, String> {
         }
         [command, path] if command == "deps" => metadata_dependencies(Path::new(path)),
         [command, path] if command == "validate" => validate_file(Path::new(path)),
+        [command, metadata_flag, metadata, out_flag, out]
+            if command == "generate" && metadata_flag == "--metadata" && out_flag == "--out" =>
+        {
+            generate(Path::new(metadata), Path::new(out))
+        }
         [command, baseline, current] if command == "diff" => {
             compatibility_diff(Path::new(baseline), Path::new(current), false)
         }
@@ -148,6 +153,29 @@ fn compile_ir(path: &Path) -> Result<CanonicalIr, String> {
         .map_err(|error| format!("failed to read `{}`: {error}", path.display()))?;
     let metadata = parse_metadata(path, &source)?;
     build_ir(path, &source, &metadata)
+}
+
+fn generate(metadata_path: &Path, output_directory: &Path) -> Result<String, String> {
+    let ir = compile_ir(metadata_path)?;
+    let current_directory = env::current_dir()
+        .map_err(|error| format!("failed to resolve current directory: {error}"))?;
+    let dependency_base = if metadata_path.is_absolute() {
+        metadata_path.parent().unwrap_or_else(|| Path::new("/")).to_path_buf()
+    } else {
+        current_directory.clone()
+    };
+    let absolute_output = if output_directory.is_absolute() {
+        output_directory.to_path_buf()
+    } else {
+        current_directory.join(output_directory)
+    };
+    let plan = codegen::render_for_output(&ir, &dependency_base, &absolute_output);
+    codegen::write(&plan, output_directory)?;
+    Ok(format!(
+        "generated {}\nmanifest: {}",
+        output_directory.display(),
+        output_directory.join("clapgen.manifest.kdl").display()
+    ))
 }
 
 fn validate_file(path: &Path) -> Result<String, String> {

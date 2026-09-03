@@ -1,0 +1,2 @@
+# Golden fixtures assert byte-for-byte deterministic generator output.
+crates/clapgen-cli/tests/golden/* text eol=lf
