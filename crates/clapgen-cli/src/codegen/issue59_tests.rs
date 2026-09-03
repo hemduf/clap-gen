@@ -79,6 +79,22 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
 }
 
 #[test]
+fn issue59_backend_does_not_preempt_later_abi_exception_containment() {
+    let plan = plan();
+    let header = generated_text(&plan, "clapgen_instance_backend.hpp");
+    let source = generated_text(&plan, "clapgen_instance_backend.cpp");
+
+    assert!(
+        !header.contains("create_plugin_instance(") || !header.contains("host) noexcept"),
+        "the private creation backend must be allowed to report C++ failures to the future C ABI guard:\n{header}"
+    );
+    assert!(
+        !source.contains("create_plugin_instance(") || !source.contains(") noexcept"),
+        "the fallback definition must match the throwable private seam:\n{source}"
+    );
+}
+
+#[test]
 fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
     let plan = plan();
     let entry = generated_text(&plan, "clapgen_entry.cpp");
