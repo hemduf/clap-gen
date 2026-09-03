@@ -4,8 +4,7 @@
 
 namespace detail = clapgen::generated::detail;
 
-static_assert(
-    std::is_same_v<decltype(&detail::entry_init), decltype(clap_plugin_entry_t::init)>);
+static_assert(std::is_same_v<decltype(&detail::entry_init), decltype(clap_plugin_entry_t::init)>);
 static_assert(
     std::is_same_v<decltype(&detail::entry_deinit), decltype(clap_plugin_entry_t::deinit)>);
 static_assert(std::is_same_v<decltype(&detail::entry_get_factory),
