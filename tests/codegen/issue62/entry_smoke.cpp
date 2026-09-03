@@ -7,9 +7,10 @@
 namespace detail = clapgen::generated::detail;
 
 static_assert(std::is_same_v<decltype(&detail::entry_init), decltype(clap_plugin_entry_t::init)>);
-static_assert(std::is_same_v<decltype(&detail::entry_deinit), decltype(clap_plugin_entry_t::deinit)>);
 static_assert(
-    std::is_same_v<decltype(&detail::entry_get_factory), decltype(clap_plugin_entry_t::get_factory)>);
+    std::is_same_v<decltype(&detail::entry_deinit), decltype(clap_plugin_entry_t::deinit)>);
+static_assert(std::is_same_v<decltype(&detail::entry_get_factory),
+                             decltype(clap_plugin_entry_t::get_factory)>);
 
 int main() {
   if (clap_entry.clap_version.major != CLAP_VERSION.major ||
@@ -67,9 +68,8 @@ int main() {
   }
 
   bool thread_init_ok = false;
-  std::thread init_thread([&thread_init_ok] {
-    thread_init_ok = clap_entry.init("entry-thread.clap");
-  });
+  std::thread init_thread(
+      [&thread_init_ok] { thread_init_ok = clap_entry.init("entry-thread.clap"); });
   init_thread.join();
   if (!thread_init_ok || clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID) != expected_factory) {
     return 13;
