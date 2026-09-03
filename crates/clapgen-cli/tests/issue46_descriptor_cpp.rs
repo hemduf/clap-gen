@@ -100,7 +100,7 @@ fn generated_descriptor_compiles_and_has_one_stable_address_across_translation_u
         .into_iter()
         .find(|candidate| candidate.is_file())
         .expect("generated descriptor smoke executable should exist");
-    run(Command::new(executable), "generated descriptor smoke executable");
+    run(&mut Command::new(executable), "generated descriptor smoke executable");
 
     fs::remove_dir_all(root).expect("temporary directory should be removable");
 }
