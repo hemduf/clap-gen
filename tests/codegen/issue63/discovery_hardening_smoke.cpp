@@ -115,8 +115,8 @@ int main() {
   if (!clap_entry.init("discovery-hardening.clap")) {
     return 3;
   }
-  const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID));
+  const auto* factory =
+      static_cast<const clap_plugin_factory_t*>(clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID));
   if (factory != direct_factory) {
     return 4;
   }
@@ -138,7 +138,8 @@ int main() {
   if (factory->get_plugin_descriptor(factory, 0u) != generated::plugin_descriptors[0] ||
       factory->get_plugin_descriptor(factory, count) != nullptr ||
       factory->get_plugin_descriptor(factory, count + 1u) != nullptr ||
-      factory->get_plugin_descriptor(factory, std::numeric_limits<std::uint32_t>::max()) != nullptr) {
+      factory->get_plugin_descriptor(factory, std::numeric_limits<std::uint32_t>::max()) !=
+          nullptr) {
     return 7;
   }
 
