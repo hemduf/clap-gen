@@ -19,17 +19,11 @@ const void* CLAP_ABI host_get_extension(const clap_host_t*, const char*) {
   return nullptr;
 }
 
-void CLAP_ABI host_request_restart(const clap_host_t*) {
-  ++host_callback_calls;
-}
+void CLAP_ABI host_request_restart(const clap_host_t*) { ++host_callback_calls; }
 
-void CLAP_ABI host_request_process(const clap_host_t*) {
-  ++host_callback_calls;
-}
+void CLAP_ABI host_request_process(const clap_host_t*) { ++host_callback_calls; }
 
-void CLAP_ABI host_request_callback(const clap_host_t*) {
-  ++host_callback_calls;
-}
+void CLAP_ABI host_request_callback(const clap_host_t*) { ++host_callback_calls; }
 
 clap_host_t compatible_host() {
   clap_host_t host{};
