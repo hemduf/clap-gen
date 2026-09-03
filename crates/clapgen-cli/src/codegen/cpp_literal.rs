@@ -70,10 +70,7 @@ mod tests {
     #[test]
     fn renders_portable_utf8_c_string_literals_for_abi_surfaces() {
         assert_eq!("\"plain\"", utf8_c_string("plain"));
-        assert_eq!(
-            "\"quote\\\"slash\\\\line\\n\"",
-            utf8_c_string("quote\"slash\\line\n")
-        );
+        assert_eq!("\"quote\\\"slash\\\\line\\n\"", utf8_c_string("quote\"slash\\line\n"));
         assert_eq!("\"\\b\\f\\001\"", utf8_c_string("\u{0008}\u{000C}\u{0001}"));
         assert_eq!("\"caf\\303\\251\"", utf8_c_string("café"));
         assert_eq!("nullptr", optional_utf8_c_string(None));
