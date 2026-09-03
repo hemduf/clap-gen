@@ -121,18 +121,17 @@ fn validate_descriptor_c_strings(
     let Some(subject) = descriptor_c_string_violation(plugin) else {
         return Ok(());
     };
-    let subject =
-        if subject == "feature" { "feature".to_owned() } else { format!("field `{subject}`") };
-    Err(descriptor_nul_diagnostic(path, source, &subject))
+    Err(descriptor_nul_diagnostic(path, source, subject))
 }
 
 fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String {
+    let node = if subject == "feature" { "feature" } else { "plugin" };
     let line = source
         .lines()
         .enumerate()
         .find_map(|(index, line)| {
             let line = line.trim_start();
-            line.strip_prefix("plugin")
+            line.strip_prefix(node)
                 .is_some_and(|rest| {
                     rest.is_empty()
                         || rest.starts_with('{')
@@ -141,6 +140,8 @@ fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String
                 .then_some(index + 1)
         })
         .unwrap_or(1);
+    let subject =
+        if subject == "feature" { "feature".to_owned() } else { format!("field `{subject}`") };
     format!(
         "{}:{line}: plugin descriptor {subject} contains an embedded NUL character\nhint: remove U+0000 because CLAP descriptor fields are C strings and cannot represent embedded NUL bytes",
         path.display()
