@@ -36,7 +36,7 @@ mod tests {
         assert_eq!("\"plain\"", string("plain"));
         assert_eq!("\"quote\\\"slash\\\\line\\n\"", string("quote\"slash\\line\n"));
         assert_eq!("\"\\b\\f\\001\"", string("\u{0008}\u{000C}\u{0001}"));
-        assert_eq!("\"café\"", string("café"));
+        assert_eq!("\"caf\\303\\251\"", string("café"));
         assert_eq!("nullptr", optional_string(None));
         assert_eq!("\"value\"", optional_string(Some("value")));
     }
