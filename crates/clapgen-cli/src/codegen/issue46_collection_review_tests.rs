@@ -18,16 +18,9 @@ fn plugin() -> PluginIr {
 
 #[test]
 fn collection_renderer_rejects_embedded_nul_in_every_descriptor_c_string() {
-    for field in [
-        "id",
-        "name",
-        "vendor",
-        "version",
-        "url",
-        "manual-url",
-        "support-url",
-        "description",
-    ] {
+    for field in
+        ["id", "name", "vendor", "version", "url", "manual-url", "support-url", "description"]
+    {
         let mut value = plugin();
         match field {
             "id" => value.id = "com.example.collection\0hidden".to_owned(),
