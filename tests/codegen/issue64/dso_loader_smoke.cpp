@@ -16,13 +16,12 @@ namespace {
 
 class DynamicLibrary {
 public:
-  explicit DynamicLibrary(const char* path) {
+  explicit DynamicLibrary(const char* path)
 #ifdef _WIN32
-    handle_ = LoadLibraryA(path);
+      : handle_(LoadLibraryA(path)) {}
 #else
-    handle_ = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+      : handle_(dlopen(path, RTLD_NOW | RTLD_LOCAL)) {}
 #endif
-  }
 
   ~DynamicLibrary() {
 #ifdef _WIN32
@@ -124,7 +123,9 @@ int main(int argc, char** argv) {
     return fail(5, "pre-init factory discovery was not rejected");
   }
 
-  if (!entry->init(argv[1]) || !entry->init(argv[1])) {
+  const bool first_init = entry->init(argv[1]);
+  const bool second_init = entry->init(argv[1]);
+  if (!first_init || !second_init) {
     return fail(6, "repeated entry init failed");
   }
 
