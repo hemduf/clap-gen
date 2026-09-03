@@ -118,7 +118,8 @@ int main(int argc, char** argv) {
     return fail(4, "resolved entry exposes unexpected CLAP version");
   }
 
-  if (entry->get_factory(CLAP_PLUGIN_FACTORY_ID) != nullptr || entry->get_factory(nullptr) != nullptr ||
+  if (entry->get_factory(CLAP_PLUGIN_FACTORY_ID) != nullptr ||
+      entry->get_factory(nullptr) != nullptr ||
       entry->get_factory("clap.unknown-factory") != nullptr) {
     return fail(5, "pre-init factory discovery was not rejected");
   }
@@ -154,7 +155,8 @@ int main(int argc, char** argv) {
   }
   if (factory->get_plugin_descriptor(factory, count) != nullptr ||
       factory->get_plugin_descriptor(factory, count + 1u) != nullptr ||
-      factory->get_plugin_descriptor(factory, std::numeric_limits<std::uint32_t>::max()) != nullptr) {
+      factory->get_plugin_descriptor(factory,
+                                     std::numeric_limits<std::uint32_t>::max()) != nullptr) {
     return fail(12, "out-of-range descriptor lookup did not fail safely");
   }
 
