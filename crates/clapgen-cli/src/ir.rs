@@ -28,6 +28,13 @@ impl ExtensionSet {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PersistentIdIr {
+    pub(crate) kind: String,
+    pub(crate) key: String,
+    pub(crate) value: u32,
+}
+
 #[allow(dead_code)]
 pub(crate) struct CanonicalIr {
     pub(crate) version: u32,
@@ -35,6 +42,7 @@ pub(crate) struct CanonicalIr {
     pub(crate) draft_extensions: ExtensionSet,
     semantic: reviewed::CanonicalIr,
     typed: reviewed::TypedIr,
+    persistent_ids: Vec<PersistentIdIr>,
     dependencies: Vec<String>,
     sources: Vec<SourceEntry>,
 }
@@ -50,6 +58,7 @@ impl fmt::Debug for CanonicalIr {
             .field("note_ports", &self.typed.note_ports.len())
             .field("stable_extensions", &self.stable_extensions.len())
             .field("draft_extensions", &self.draft_extensions.len())
+            .field("persistent_ids", &self.persistent_ids.len())
             .field("dependencies", &self.dependencies.len())
             .field("sources", &self.sources.len())
             .finish_non_exhaustive()
@@ -69,6 +78,8 @@ pub(crate) fn build_ir(
     let version = semantic.version;
     let stable_extensions = ExtensionSet(semantic.stable_extensions.len());
     let draft_extensions = ExtensionSet(semantic.draft_extensions.len());
+    let mut dependencies = bundle.dependencies;
+    let persistent_ids = load_persistent_ids(path, &mut dependencies)?;
 
     Ok(CanonicalIr {
         version,
@@ -76,9 +87,38 @@ pub(crate) fn build_ir(
         draft_extensions,
         semantic,
         typed,
-        dependencies: bundle.dependencies,
+        persistent_ids,
+        dependencies,
         sources: bundle.sources,
     })
+}
+
+fn load_persistent_ids(
+    metadata_path: &Path,
+    dependencies: &mut Vec<String>,
+) -> Result<Vec<PersistentIdIr>, String> {
+    let registry_path =
+        metadata_path.parent().unwrap_or_else(|| Path::new(".")).join("plugin.ids.kdl");
+    let Some(entries) = crate::ids::read_entries(&registry_path)? else {
+        return Ok(Vec::new());
+    };
+
+    let dependency = if metadata_path.is_relative() {
+        registry_path.to_string_lossy().replace('\\', "/")
+    } else {
+        "plugin.ids.kdl".to_owned()
+    };
+    dependencies.push(dependency);
+
+    let mut ids = entries
+        .into_iter()
+        .filter(|entry| !entry.tombstone)
+        .map(|entry| PersistentIdIr { kind: entry.kind, key: entry.key, value: entry.value })
+        .collect::<Vec<_>>();
+    ids.sort_by(|left, right| {
+        (left.value, &left.kind, &left.key).cmp(&(right.value, &right.kind, &right.key))
+    });
+    Ok(ids)
 }
 
 pub(crate) fn serialize_ir_kdl(ir: &CanonicalIr) -> String {
@@ -145,6 +185,10 @@ impl CanonicalIr {
 
     pub(crate) fn draft_extension_items(&self) -> &[ExtensionIr] {
         &self.typed.draft_extensions
+    }
+
+    pub(crate) fn persistent_ids(&self) -> &[PersistentIdIr] {
+        &self.persistent_ids
     }
 
     pub(crate) fn dependencies(&self) -> &[String] {
