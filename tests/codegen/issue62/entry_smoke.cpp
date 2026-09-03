@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <limits>
 #include <thread>
 #include <type_traits>
 
@@ -79,6 +80,18 @@ int main() {
   deinit_thread.join();
   if (clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID) != nullptr) {
     return 14;
+  }
+
+  detail::entry_init_depth = std::numeric_limits<std::uint32_t>::max();
+  if (clap_entry.init("entry-overflow.clap")) {
+    return 15;
+  }
+  if (detail::entry_init_depth != std::numeric_limits<std::uint32_t>::max()) {
+    return 16;
+  }
+  detail::entry_init_depth = 0u;
+  if (clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID) != nullptr) {
+    return 17;
   }
 
   return 0;
