@@ -36,7 +36,7 @@ fn generated_descriptor_compiles_and_has_one_stable_address_across_translation_u
     let manifest = source.join("plugin.kdl");
     fs::write(
         &manifest,
-        "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.descriptor-smoke\" name=\"Descriptor Smoke\" vendor=\"Example\" version=\"1.2.3\" {\n    feature \"audio-effect\"\n    feature \"stereo\"\n}\nprocessor class=\"DescriptorProcessor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n",
+        "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.descriptor-smoke\" name=\"Descriptor Café\" vendor=\"Example\" version=\"1.2.3\" {\n    feature \"audio-effect\"\n    feature \"stereo\"\n}\nprocessor class=\"DescriptorProcessor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n",
     )
     .expect("manifest should be writable");
     fs::write(
@@ -70,7 +70,7 @@ fn generated_descriptor_compiles_and_has_one_stable_address_across_translation_u
     .expect("translation unit B");
     fs::write(
         root.join("main.cpp"),
-        "#include \"clapgen_descriptors.hpp\"\n#include <cstring>\n#include <type_traits>\n\nextern \"C\" const clap_plugin_descriptor_t* descriptor_from_a();\nextern \"C\" const clap_plugin_descriptor_t* descriptor_from_b();\nextern \"C\" const char* const* features_from_a();\nextern \"C\" const char* const* features_from_b();\n\nusing GeneratedDescriptor = decltype(clapgen::generated::plugin_descriptor_0);\nstatic_assert(std::is_const_v<GeneratedDescriptor>);\nstatic_assert(std::is_same_v<std::remove_cv_t<GeneratedDescriptor>, clap_plugin_descriptor_t>);\nstatic_assert(clapgen::generated::plugin_descriptor_count == 1u);\n\nint main() {\n    const auto* descriptor = &clapgen::generated::plugin_descriptor_0;\n    if (descriptor_from_a() != descriptor || descriptor_from_b() != descriptor) return 1;\n    if (features_from_a() != descriptor->features || features_from_b() != descriptor->features) return 2;\n    if (clapgen::generated::plugin_descriptors[0] != descriptor) return 3;\n    if (std::strcmp(descriptor->id, \"com.example.descriptor-smoke\") != 0) return 4;\n    if (std::strcmp(descriptor->name, \"Descriptor Smoke\") != 0) return 5;\n    if (!descriptor->features || !descriptor->features[0] || !descriptor->features[1]) return 6;\n    if (descriptor->features[2] != nullptr) return 7;\n    if (std::strcmp(descriptor->features[0], \"audio-effect\") != 0) return 8;\n    if (std::strcmp(descriptor->features[1], \"stereo\") != 0) return 9;\n    return 0;\n}\n",
+        "#include \"clapgen_descriptors.hpp\"\n#include <cstring>\n#include <type_traits>\n\nextern \"C\" const clap_plugin_descriptor_t* descriptor_from_a();\nextern \"C\" const clap_plugin_descriptor_t* descriptor_from_b();\nextern \"C\" const char* const* features_from_a();\nextern \"C\" const char* const* features_from_b();\n\nusing GeneratedDescriptor = decltype(clapgen::generated::plugin_descriptor_0);\nstatic_assert(std::is_const_v<GeneratedDescriptor>);\nstatic_assert(std::is_same_v<std::remove_cv_t<GeneratedDescriptor>, clap_plugin_descriptor_t>);\nstatic_assert(clapgen::generated::plugin_descriptor_count == 1u);\n\nint main() {\n    static constexpr unsigned char expected_name[] = {'D','e','s','c','r','i','p','t','o','r',' ', 'C','a','f', 0xC3, 0xA9, 0};\n    const auto* descriptor = &clapgen::generated::plugin_descriptor_0;\n    if (descriptor_from_a() != descriptor || descriptor_from_b() != descriptor) return 1;\n    if (features_from_a() != descriptor->features || features_from_b() != descriptor->features) return 2;\n    if (clapgen::generated::plugin_descriptors[0] != descriptor) return 3;\n    if (std::strcmp(descriptor->id, \"com.example.descriptor-smoke\") != 0) return 4;\n    if (std::strcmp(descriptor->name, reinterpret_cast<const char*>(expected_name)) != 0) return 5;\n    if (!descriptor->features || !descriptor->features[0] || !descriptor->features[1]) return 6;\n    if (descriptor->features[2] != nullptr) return 7;\n    if (std::strcmp(descriptor->features[0], \"audio-effect\") != 0) return 8;\n    if (std::strcmp(descriptor->features[1], \"stereo\") != 0) return 9;\n    return 0;\n}\n",
     )
     .expect("main translation unit");
     fs::write(
@@ -88,11 +88,18 @@ fn generated_descriptor_compiles_and_has_one_stable_address_across_translation_u
         "CMake build for generated descriptor",
     );
 
-    let executable = if cfg!(windows) {
-        build.join("Release/issue46_descriptor_smoke.exe")
+    let candidates = if cfg!(windows) {
+        vec![
+            build.join("Release/issue46_descriptor_smoke.exe"),
+            build.join("issue46_descriptor_smoke.exe"),
+        ]
     } else {
-        build.join("issue46_descriptor_smoke")
+        vec![build.join("issue46_descriptor_smoke")]
     };
+    let executable = candidates
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+        .expect("generated descriptor smoke executable should exist");
     run(Command::new(executable), "generated descriptor smoke executable");
 
     fs::remove_dir_all(root).expect("temporary directory should be removable");
