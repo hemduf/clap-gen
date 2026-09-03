@@ -155,8 +155,8 @@ int main(int argc, char** argv) {
   }
   if (factory->get_plugin_descriptor(factory, count) != nullptr ||
       factory->get_plugin_descriptor(factory, count + 1u) != nullptr ||
-      factory->get_plugin_descriptor(factory,
-                                     std::numeric_limits<std::uint32_t>::max()) != nullptr) {
+      factory->get_plugin_descriptor(factory, std::numeric_limits<std::uint32_t>::max()) !=
+          nullptr) {
     return fail(12, "out-of-range descriptor lookup did not fail safely");
   }
 
