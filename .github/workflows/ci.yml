@@ -98,13 +98,14 @@ jobs:
           tests/codegen/issue59/abi_contract.cpp
           tests/codegen/issue59/backend_smoke.cpp
           tests/codegen/issue59/backend_spy_smoke.cpp
+          tests/codegen/issue60/factory_smoke.cpp
 
       - name: C++ static analysis (Unix)
         if: runner.os != 'Windows'
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue59
+          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -113,7 +114,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue59
+          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60
 
       - name: Configure C++
         run: >-
