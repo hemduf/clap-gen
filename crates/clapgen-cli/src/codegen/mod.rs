@@ -2,6 +2,7 @@
 
 mod dependency;
 mod depfile;
+mod descriptor_cpp;
 mod ids_cpp;
 mod manifest;
 mod metadata_cpp;
@@ -18,6 +19,11 @@ pub(crate) use outputs::{GeneratedFile, GenerationPlan, OUTPUT_NAMES};
 
 pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
     render::render(ir)
+}
+
+#[cfg(test)]
+pub(crate) fn render_descriptors_for_plugins(plugins: &[crate::ir::PluginIr]) -> String {
+    descriptor_cpp::header_for_plugins(plugins)
 }
 
 pub(crate) fn render_for_output(
