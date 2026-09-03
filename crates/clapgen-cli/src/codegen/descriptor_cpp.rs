@@ -19,9 +19,7 @@ pub(crate) fn header_for_plugins(plugins: &[PluginIr]) -> Result<String, String>
             } else {
                 format!("field `{subject}`")
             };
-            return Err(format!(
-                "plugin descriptor {subject} contains an embedded NUL character"
-            ));
+            return Err(format!("plugin descriptor {subject} contains an embedded NUL character"));
         }
     }
 
