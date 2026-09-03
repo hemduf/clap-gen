@@ -145,19 +145,10 @@ fn absent_optional_fields_and_empty_features_use_null_without_runtime_initializa
 #[test]
 fn descriptor_exposed_c_strings_reject_embedded_nul_before_codegen() {
     for (label, source) in [
-        (
-            "name",
-            RICH_SOURCE.replace(
-                "name=\"Descriptor\"",
-                "name=\"Descriptor\\u{0}Hidden\"",
-            ),
-        ),
+        ("name", RICH_SOURCE.replace("name=\"Descriptor\"", "name=\"Descriptor\\u{0}Hidden\"")),
         (
             "feature",
-            RICH_SOURCE.replace(
-                "feature \"audio-effect\"",
-                "feature \"audio-effect\\u{0}hidden\"",
-            ),
+            RICH_SOURCE.replace("feature \"audio-effect\"", "feature \"audio-effect\\u{0}hidden\""),
         ),
     ] {
         let path = Path::new("plugin.kdl");
@@ -200,7 +191,8 @@ fn multi_descriptor_renderer_sorts_by_id_and_builds_a_stable_pointer_table() {
     ];
 
     let first = render_descriptors_for_plugins(&plugins).expect("unique descriptors should render");
-    let second = render_descriptors_for_plugins(&plugins).expect("unique descriptors should render");
+    let second =
+        render_descriptors_for_plugins(&plugins).expect("unique descriptors should render");
     assert_eq!(first, second, "multi-descriptor rendering must be deterministic");
 
     let alpha = first.find(".id = \"com.example.alpha\",").expect("alpha descriptor");
