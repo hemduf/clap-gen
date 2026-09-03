@@ -42,6 +42,7 @@ if(BUILD_TESTING)
 
   if(CLAPGEN_FETCH_CLAP)
     find_program(CLAPGEN_CARGO_EXECUTABLE NAMES cargo REQUIRED)
+    find_package(Threads REQUIRED)
     set(CLAPGEN_ISSUE59_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/issue59")
     set(CLAPGEN_ISSUE59_ENTRY "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_entry.cpp")
     set(
@@ -164,5 +165,22 @@ if(BUILD_TESTING)
       NAME clapgen.codegen.issue61.create_plugin_spy_smoke
       COMMAND clapgen_issue61_create_plugin_spy_smoke
     )
+
+    add_executable(
+      clapgen_issue62_entry_smoke
+      tests/codegen/issue62/entry_smoke.cpp
+      "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
+    )
+    add_dependencies(clapgen_issue62_entry_smoke clapgen_issue59_generated)
+    target_compile_features(clapgen_issue62_entry_smoke PRIVATE cxx_std_20)
+    target_include_directories(
+      clapgen_issue62_entry_smoke
+      PRIVATE
+        "${CLAPGEN_ISSUE59_GENERATED_DIR}"
+        "${clap_SOURCE_DIR}/include"
+    )
+    target_link_libraries(clapgen_issue62_entry_smoke PRIVATE Threads::Threads)
+    clapgen_enable_warnings(clapgen_issue62_entry_smoke)
+    add_test(NAME clapgen.codegen.issue62.entry_smoke COMMAND clapgen_issue62_entry_smoke)
   endif()
 endif()
