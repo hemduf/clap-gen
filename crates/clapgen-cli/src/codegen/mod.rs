@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod cpp_literal;
 mod dependency;
 mod depfile;
 mod descriptor_cpp;
