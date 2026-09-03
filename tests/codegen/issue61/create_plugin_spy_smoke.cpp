@@ -69,6 +69,9 @@ int main() {
   if (factory->create_plugin != detail::factory_create_plugin) {
     return 1;
   }
+  if (!clap_entry.init("issue61-create-plugin-smoke.clap")) {
+    return 2;
+  }
 
   auto host = compatible_host();
   const char* known_id = generated::plugin_descriptors[0]->id;
@@ -76,25 +79,25 @@ int main() {
   detail::reset_backend_spy();
   if (detail::factory_create_plugin(nullptr, &host, known_id) != nullptr ||
       detail::backend_calls != 0u) {
-    return 2;
+    return 3;
   }
 
   clap_plugin_factory_t unexpected{};
   detail::reset_backend_spy();
   if (detail::factory_create_plugin(&unexpected, &host, known_id) != nullptr ||
       detail::backend_calls != 0u) {
-    return 3;
+    return 4;
   }
 
   detail::reset_backend_spy();
   if (factory->create_plugin(factory, nullptr, known_id) != nullptr ||
       detail::backend_calls != 0u) {
-    return 4;
+    return 5;
   }
 
   detail::reset_backend_spy();
   if (factory->create_plugin(factory, &host, nullptr) != nullptr || detail::backend_calls != 0u) {
-    return 5;
+    return 6;
   }
 
   auto incompatible = host;
@@ -103,19 +106,19 @@ int main() {
   host_callback_calls = 0u;
   if (factory->create_plugin(factory, &incompatible, known_id) != nullptr ||
       detail::backend_calls != 0u || host_callback_calls != 0u) {
-    return 6;
+    return 7;
   }
 
   detail::reset_backend_spy();
   host_callback_calls = 0u;
   if (factory->create_plugin(factory, &host, "com.example.unknown") != nullptr ||
       detail::backend_calls != 0u || host_callback_calls != 0u) {
-    return 7;
+    return 8;
   }
 
   char copied_id[] = "com.example.entry";
   if (copied_id == known_id) {
-    return 8;
+    return 9;
   }
 
   detail::reset_backend_spy();
@@ -124,8 +127,9 @@ int main() {
   if (plugin != &detail::backend_plugin || detail::backend_calls != 1u ||
       detail::backend_descriptor_index != 0u || detail::backend_host != &host ||
       host_callback_calls != 0u) {
-    return 9;
+    return 10;
   }
 
+  clap_entry.deinit();
   return 0;
 }
