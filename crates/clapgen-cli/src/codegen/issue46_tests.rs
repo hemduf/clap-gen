@@ -199,8 +199,8 @@ fn multi_descriptor_renderer_sorts_by_id_and_builds_a_stable_pointer_table() {
         plugin("com.example.middle", "Middle", "note-effect"),
     ];
 
-    let first = render_descriptors_for_plugins(&plugins);
-    let second = render_descriptors_for_plugins(&plugins);
+    let first = render_descriptors_for_plugins(&plugins).expect("unique descriptors should render");
+    let second = render_descriptors_for_plugins(&plugins).expect("unique descriptors should render");
     assert_eq!(first, second, "multi-descriptor rendering must be deterministic");
 
     let alpha = first.find(".id = \"com.example.alpha\",").expect("alpha descriptor");
@@ -222,4 +222,17 @@ fn multi_descriptor_renderer_sorts_by_id_and_builds_a_stable_pointer_table() {
     ] {
         assert!(first.contains(required), "missing `{required}`:\n{first}");
     }
+}
+
+#[test]
+fn multi_descriptor_renderer_rejects_duplicate_plugin_ids() {
+    let plugins = vec![
+        plugin("com.example.duplicate", "First", "instrument"),
+        plugin("com.example.duplicate", "Second", "audio-effect"),
+    ];
+
+    let error = render_descriptors_for_plugins(&plugins)
+        .expect_err("duplicate plugin IDs must be rejected before factory generation");
+    assert!(error.contains("duplicate"), "{error}");
+    assert!(error.contains("com.example.duplicate"), "{error}");
 }
