@@ -21,20 +21,16 @@ fn generated_text<'a>(plan: &'a GenerationPlan, path: &str) -> &'a str {
 
 #[test]
 fn issue59_adds_fixed_entry_and_backend_outputs() {
-    for required in [
-        "clapgen_entry.cpp",
-        "clapgen_instance_backend.hpp",
-        "clapgen_instance_backend.cpp",
-    ] {
+    for required in
+        ["clapgen_entry.cpp", "clapgen_instance_backend.hpp", "clapgen_instance_backend.cpp"]
+    {
         assert!(OUTPUT_NAMES.contains(&required), "missing fixed output `{required}`");
     }
 
     let plan = plan();
-    for required in [
-        "clapgen_entry.cpp",
-        "clapgen_instance_backend.hpp",
-        "clapgen_instance_backend.cpp",
-    ] {
+    for required in
+        ["clapgen_entry.cpp", "clapgen_instance_backend.hpp", "clapgen_instance_backend.cpp"]
+    {
         assert!(!generated_text(&plan, required).is_empty(), "`{required}` must not be empty");
     }
 }
@@ -71,8 +67,14 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
         "malloc(",
         "calloc(",
     ] {
-        assert!(!header.contains(forbidden), "unexpected `{forbidden}` in backend header:\n{header}");
-        assert!(!source.contains(forbidden), "unexpected `{forbidden}` in backend source:\n{source}");
+        assert!(
+            !header.contains(forbidden),
+            "unexpected `{forbidden}` in backend header:\n{header}"
+        );
+        assert!(
+            !source.contains(forbidden),
+            "unexpected `{forbidden}` in backend source:\n{source}"
+        );
     }
 }
 
@@ -100,6 +102,9 @@ fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
         ".process =",
         "get_extension",
     ] {
-        assert!(!entry.contains(forbidden), "#59 pulled later lifecycle work via `{forbidden}`:\n{entry}");
+        assert!(
+            !entry.contains(forbidden),
+            "#59 pulled later lifecycle work via `{forbidden}`:\n{entry}"
+        );
     }
 }
