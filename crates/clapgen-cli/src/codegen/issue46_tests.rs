@@ -1,9 +1,9 @@
 use std::path::Path;
 
-use crate::ir::build_ir;
+use crate::ir::{PluginIr, build_ir};
 use crate::metadata::parse_metadata;
 
-use super::{GenerationPlan, render};
+use super::{GenerationPlan, render, render_descriptors_for_plugins};
 
 const RICH_SOURCE: &str = r#"clapgen schema="1.0.0"
 plugin id="com.example.descriptor" name="Descriptor" vendor="Example Labs" version="2.3.4" url="https://example.test/plugin" manual-url="https://example.test/manual" support-url="https://example.test/support" description="Immutable CLAP descriptor" {
@@ -44,6 +44,20 @@ fn plan_from(source: &str) -> GenerationPlan {
 fn generated_text<'a>(plan: &'a GenerationPlan, path: &str) -> &'a str {
     let file = plan.files.iter().find(|file| file.path == path).expect("generated file");
     std::str::from_utf8(&file.bytes).expect("generated files must be UTF-8")
+}
+
+fn plugin(id: &str, name: &str, feature: &str) -> PluginIr {
+    PluginIr {
+        id: id.to_owned(),
+        name: name.to_owned(),
+        vendor: "Example".to_owned(),
+        version: "1.0.0".to_owned(),
+        url: None,
+        manual_url: None,
+        support_url: None,
+        description: None,
+        features: vec![feature.to_owned()],
+    }
 }
 
 #[test]
@@ -126,4 +140,34 @@ fn descriptor_generation_is_deterministic() {
     let second = plan_from(RICH_SOURCE);
 
     assert_eq!(first, second);
+}
+
+#[test]
+fn multi_descriptor_renderer_sorts_by_id_and_builds_a_stable_pointer_table() {
+    let plugins = vec![
+        plugin("com.example.zeta", "Zeta", "instrument"),
+        plugin("com.example.alpha", "Alpha", "audio-effect"),
+        plugin("com.example.middle", "Middle", "note-effect"),
+    ];
+
+    let first = render_descriptors_for_plugins(&plugins);
+    let second = render_descriptors_for_plugins(&plugins);
+    assert_eq!(first, second, "multi-descriptor rendering must be deterministic");
+
+    let alpha = first.find(".id = \"com.example.alpha\",").expect("alpha descriptor");
+    let middle = first.find(".id = \"com.example.middle\",").expect("middle descriptor");
+    let zeta = first.find(".id = \"com.example.zeta\",").expect("zeta descriptor");
+    assert!(alpha < middle && middle < zeta, "descriptors must be ordered by stable plugin id:\n{first}");
+
+    for required in [
+        "inline constexpr clap_plugin_descriptor_t plugin_descriptor_0{",
+        "inline constexpr clap_plugin_descriptor_t plugin_descriptor_1{",
+        "inline constexpr clap_plugin_descriptor_t plugin_descriptor_2{",
+        "&plugin_descriptor_0,",
+        "&plugin_descriptor_1,",
+        "&plugin_descriptor_2,",
+        "inline constexpr std::uint32_t plugin_descriptor_count = 3u;",
+    ] {
+        assert!(first.contains(required), "missing `{required}`:\n{first}");
+    }
 }
