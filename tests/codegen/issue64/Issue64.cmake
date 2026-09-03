@@ -17,8 +17,10 @@ set_target_properties(
   PROPERTIES
     PREFIX ""
     OUTPUT_NAME "clapgen_issue64_plugin"
+    CXX_EXTENSIONS OFF
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
+    WINDOWS_EXPORT_ALL_SYMBOLS OFF
 )
 clapgen_enable_warnings(clapgen_issue64_test_module)
 
@@ -33,6 +35,7 @@ target_include_directories(
   PRIVATE
     "${clap_SOURCE_DIR}/include"
 )
+set_target_properties(clapgen_issue64_dso_loader_smoke PROPERTIES CXX_EXTENSIONS OFF)
 target_link_libraries(clapgen_issue64_dso_loader_smoke PRIVATE ${CMAKE_DL_LIBS})
 clapgen_enable_warnings(clapgen_issue64_dso_loader_smoke)
 
