@@ -81,11 +81,9 @@ fn issue61_create_plugin_validates_inputs_version_and_matches_id_by_content() {
 
 #[test]
 fn issue61_generic_dispatch_uses_sorted_descriptor_index_for_multiple_ids() {
-    let descriptors = render_descriptors_for_plugins(&[
-        plugin("com.example.zeta"),
-        plugin("com.example.alpha"),
-    ])
-    .expect("descriptor collection should render");
+    let descriptors =
+        render_descriptors_for_plugins(&[plugin("com.example.zeta"), plugin("com.example.alpha")])
+            .expect("descriptor collection should render");
     let entry = super::entry_cpp::source();
 
     let alpha = descriptors.find(".id = \"com.example.alpha\"").expect("alpha descriptor");
