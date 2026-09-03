@@ -2,9 +2,11 @@
 
 mod dependency;
 mod depfile;
+mod ids_cpp;
 mod manifest;
 mod metadata_cpp;
 mod outputs;
+mod processor_cpp;
 mod render;
 mod resources_cpp;
 mod source_map;
