@@ -5,8 +5,11 @@ fn issue62_generates_defensive_entry_callbacks_and_one_global_export() {
     let source = entry_cpp::source();
 
     for required in [
+        "#include <limits>",
         "constinit std::uint32_t entry_init_depth = 0u;",
         "bool CLAP_ABI entry_init(const char*) {",
+        "entry_init_depth == std::numeric_limits<std::uint32_t>::max()",
+        "return false;",
         "++entry_init_depth;",
         "if (entry_init_depth > 0u) {",
         "--entry_init_depth;",
