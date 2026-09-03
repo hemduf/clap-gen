@@ -39,7 +39,7 @@ fn render_feature_array(output: &mut String, index: usize, plugin: &PluginIr) {
     writeln!(output, "inline constexpr const char* const plugin_features_{index}[] = {{")
         .expect("writing to String cannot fail");
     for feature in &plugin.features {
-        writeln!(output, "    {},", cpp_literal::string(feature))
+        writeln!(output, "    {},", cpp_literal::utf8_c_string(feature))
             .expect("writing to String cannot fail");
     }
     output.push_str("    nullptr,\n};\n\n");
@@ -49,32 +49,36 @@ fn render_descriptor(output: &mut String, index: usize, plugin: &PluginIr) {
     writeln!(output, "inline constexpr clap_plugin_descriptor_t plugin_descriptor_{index}{{")
         .expect("writing to String cannot fail");
     output.push_str("    .clap_version = CLAP_VERSION,\n");
-    writeln!(output, "    .id = {},", cpp_literal::string(&plugin.id))
+    writeln!(output, "    .id = {},", cpp_literal::utf8_c_string(&plugin.id))
         .expect("writing to String cannot fail");
-    writeln!(output, "    .name = {},", cpp_literal::string(&plugin.name))
+    writeln!(output, "    .name = {},", cpp_literal::utf8_c_string(&plugin.name))
         .expect("writing to String cannot fail");
-    writeln!(output, "    .vendor = {},", cpp_literal::string(&plugin.vendor))
-        .expect("writing to String cannot fail");
-    writeln!(output, "    .url = {},", cpp_literal::optional_string(plugin.url.as_deref()))
+    writeln!(output, "    .vendor = {},", cpp_literal::utf8_c_string(&plugin.vendor))
         .expect("writing to String cannot fail");
     writeln!(
         output,
+        "    .url = {},",
+        cpp_literal::optional_utf8_c_string(plugin.url.as_deref())
+    )
+    .expect("writing to String cannot fail");
+    writeln!(
+        output,
         "    .manual_url = {},",
-        cpp_literal::optional_string(plugin.manual_url.as_deref())
+        cpp_literal::optional_utf8_c_string(plugin.manual_url.as_deref())
     )
     .expect("writing to String cannot fail");
     writeln!(
         output,
         "    .support_url = {},",
-        cpp_literal::optional_string(plugin.support_url.as_deref())
+        cpp_literal::optional_utf8_c_string(plugin.support_url.as_deref())
     )
     .expect("writing to String cannot fail");
-    writeln!(output, "    .version = {},", cpp_literal::string(&plugin.version))
+    writeln!(output, "    .version = {},", cpp_literal::utf8_c_string(&plugin.version))
         .expect("writing to String cannot fail");
     writeln!(
         output,
         "    .description = {},",
-        cpp_literal::optional_string(plugin.description.as_deref())
+        cpp_literal::optional_utf8_c_string(plugin.description.as_deref())
     )
     .expect("writing to String cannot fail");
     writeln!(output, "    .features = plugin_features_{index},")
