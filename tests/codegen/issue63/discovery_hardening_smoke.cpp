@@ -171,8 +171,8 @@ int main() {
         if (clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID) != factory ||
             factory->get_plugin_count(factory) != count ||
             factory->get_plugin_descriptor(factory, 0u) != generated::plugin_descriptors[0] ||
-            factory->get_plugin_descriptor(factory,
-                                           std::numeric_limits<std::uint32_t>::max()) != nullptr ||
+            factory->get_plugin_descriptor(factory, std::numeric_limits<std::uint32_t>::max()) !=
+                nullptr ||
             factory->create_plugin(factory, &host, "com.example.unknown") != nullptr ||
             factory->create_plugin(factory, &host, known_id) != &detail::backend_plugin) {
           concurrent_failure.store(true, std::memory_order_relaxed);
