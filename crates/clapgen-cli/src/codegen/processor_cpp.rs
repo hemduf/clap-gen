@@ -5,23 +5,17 @@ pub(crate) fn header() -> String {
     output.push_str(
         "#pragma once\n\n\
 #include <clap/clap.h>\n\
-#include <concepts>\n\
 #include <cstdint>\n\n\
 namespace clapgen::generated {\n\n\
 template <typename Processor>\n\
-concept NativeProcessor = requires(\n\
-    Processor& processor,\n\
-    double sample_rate,\n\
-    std::uint32_t min_frames,\n\
-    std::uint32_t max_frames,\n\
-    const clap_process_t* process) {\n\
-    { processor.init() } -> std::same_as<bool>;\n\
-    { processor.activate(sample_rate, min_frames, max_frames) } -> std::same_as<bool>;\n\
-    { processor.deactivate() } -> std::same_as<void>;\n\
-    { processor.start_processing() } -> std::same_as<bool>;\n\
-    { processor.stop_processing() } -> std::same_as<void>;\n\
-    { processor.reset() } -> std::same_as<void>;\n\
-    { processor.process(process) } -> std::same_as<clap_process_status>;\n\
+concept NativeProcessor = requires {\n\
+    static_cast<bool (Processor::*)()>(&Processor::init);\n\
+    static_cast<bool (Processor::*)(double, std::uint32_t, std::uint32_t)>(&Processor::activate);\n\
+    static_cast<void (Processor::*)()>(&Processor::deactivate);\n\
+    static_cast<bool (Processor::*)()>(&Processor::start_processing);\n\
+    static_cast<void (Processor::*)()>(&Processor::stop_processing);\n\
+    static_cast<void (Processor::*)()>(&Processor::reset);\n\
+    static_cast<clap_process_status (Processor::*)(const clap_process_t*)>(&Processor::process);\n\
 };\n\n\
 } // namespace clapgen::generated\n",
     );
