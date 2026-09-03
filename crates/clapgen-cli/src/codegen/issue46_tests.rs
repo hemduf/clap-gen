@@ -115,7 +115,10 @@ fn feature_storage_is_immutable_static_and_null_terminated() {
         "{descriptors}"
     );
     assert!(descriptors.contains("&plugin_descriptor_0,"), "{descriptors}");
-    assert!(descriptors.contains("inline constexpr std::uint32_t plugin_descriptor_count = 1u;"), "{descriptors}");
+    assert!(
+        descriptors.contains("inline constexpr std::uint32_t plugin_descriptor_count = 1u;"),
+        "{descriptors}"
+    );
 }
 
 #[test]
@@ -123,7 +126,12 @@ fn absent_optional_fields_and_empty_features_use_null_without_runtime_initializa
     let plan = plan_from(MINIMAL_SOURCE);
     let descriptors = generated_text(&plan, "clapgen_descriptors.hpp");
 
-    for field in [".url = nullptr,", ".manual_url = nullptr,", ".support_url = nullptr,", ".description = nullptr,"] {
+    for field in [
+        ".url = nullptr,",
+        ".manual_url = nullptr,",
+        ".support_url = nullptr,",
+        ".description = nullptr,",
+    ] {
         assert!(descriptors.contains(field), "missing `{field}`:\n{descriptors}");
     }
     assert!(
@@ -157,7 +165,10 @@ fn multi_descriptor_renderer_sorts_by_id_and_builds_a_stable_pointer_table() {
     let alpha = first.find(".id = \"com.example.alpha\",").expect("alpha descriptor");
     let middle = first.find(".id = \"com.example.middle\",").expect("middle descriptor");
     let zeta = first.find(".id = \"com.example.zeta\",").expect("zeta descriptor");
-    assert!(alpha < middle && middle < zeta, "descriptors must be ordered by stable plugin id:\n{first}");
+    assert!(
+        alpha < middle && middle < zeta,
+        "descriptors must be ordered by stable plugin id:\n{first}"
+    );
 
     for required in [
         "inline constexpr clap_plugin_descriptor_t plugin_descriptor_0{",
