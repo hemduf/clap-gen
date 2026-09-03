@@ -1,4 +1,7 @@
-use crate::ir::PluginIr;
+use std::path::Path;
+
+use crate::ir::{PluginIr, build_ir};
+use crate::metadata::parse_metadata;
 
 use super::render_descriptors_for_plugins;
 
@@ -54,4 +57,17 @@ fn collection_renderer_rejects_embedded_nul_in_plugin_features() {
         .expect_err("collection renderer must reject feature NUL before C++ generation");
     assert!(error.contains("NUL"), "{error}");
     assert!(error.contains("feature"), "{error}");
+}
+
+#[test]
+fn canonical_feature_nul_diagnostic_points_to_the_feature_line() {
+    let source = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.diagnostic\" name=\"Diagnostic\" vendor=\"Example\" version=\"1.0.0\" {\n    feature \"audio-effect\\u{0}hidden\"\n}\nprocessor class=\"DiagnosticProcessor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n";
+    let path = Path::new("plugin.kdl");
+    let metadata = parse_metadata(path, source).expect("KDL unicode escape should parse");
+    let error = build_ir(path, source, &metadata)
+        .expect_err("descriptor feature containing NUL must fail semantic validation");
+
+    assert!(error.contains("plugin.kdl:3"), "{error}");
+    assert!(error.contains("feature"), "{error}");
+    assert!(error.contains("NUL"), "{error}");
 }
