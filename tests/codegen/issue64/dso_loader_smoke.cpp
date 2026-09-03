@@ -16,12 +16,7 @@ namespace {
 
 class DynamicLibrary {
 public:
-  explicit DynamicLibrary(const char* path)
-#ifdef _WIN32
-      : handle_(LoadLibraryA(path)) {}
-#else
-      : handle_(dlopen(path, RTLD_NOW | RTLD_LOCAL)) {}
-#endif
+  explicit DynamicLibrary(const char* path) : handle_(open(path)) {}
 
   ~DynamicLibrary() {
 #ifdef _WIN32
@@ -57,10 +52,16 @@ public:
 
 private:
 #ifdef _WIN32
-  HMODULE handle_ = nullptr;
+  using Handle = HMODULE;
+
+  static Handle open(const char* path) { return LoadLibraryA(path); }
 #else
-  void* handle_ = nullptr;
+  using Handle = void*;
+
+  static Handle open(const char* path) { return dlopen(path, RTLD_NOW | RTLD_LOCAL); }
 #endif
+
+  Handle handle_ = nullptr;
 };
 
 std::uint32_t host_callback_calls = 0u;
