@@ -55,12 +55,8 @@ fn render_descriptor(output: &mut String, index: usize, plugin: &PluginIr) {
         .expect("writing to String cannot fail");
     writeln!(output, "    .vendor = {},", cpp_literal::utf8_c_string(&plugin.vendor))
         .expect("writing to String cannot fail");
-    writeln!(
-        output,
-        "    .url = {},",
-        cpp_literal::optional_utf8_c_string(plugin.url.as_deref())
-    )
-    .expect("writing to String cannot fail");
+    writeln!(output, "    .url = {},", cpp_literal::optional_utf8_c_string(plugin.url.as_deref()))
+        .expect("writing to String cannot fail");
     writeln!(
         output,
         "    .manual_url = {},",
