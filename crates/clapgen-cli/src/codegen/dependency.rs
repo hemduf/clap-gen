@@ -36,8 +36,8 @@ pub(crate) fn normalize_path(value: &str) -> String {
     match (prefix.as_str(), body.is_empty()) {
         ("/", true) => "/".to_owned(),
         ("/", false) => format!("/{body}"),
-        ("//", true) => "//".to_owned(),
-        ("//", false) => format!("//{body}"),
+        (unc, true) if unc.starts_with("//") => unc.to_owned(),
+        (unc, false) if unc.starts_with("//") => format!("{unc}/{body}"),
         (drive, true) if drive.ends_with(':') => format!("{drive}/"),
         (drive, false) if drive.ends_with(':') => format!("{drive}/{body}"),
         (_, _) => body,
@@ -159,6 +159,14 @@ fn is_case_insensitive_root(root: &str) -> bool {
 
 fn split_prefix(value: &str) -> (String, &str) {
     if let Some(remainder) = value.strip_prefix("//") {
+        let mut components = remainder.split('/');
+        let server = components.next().unwrap_or_default();
+        let share = components.next().unwrap_or_default();
+        if !server.is_empty() && !share.is_empty() {
+            let prefix_len = 2 + server.len() + 1 + share.len();
+            let tail = value[prefix_len..].strip_prefix('/').unwrap_or(&value[prefix_len..]);
+            return (value[..prefix_len].to_owned(), tail);
+        }
         return ("//".to_owned(), remainder);
     }
     if let Some(remainder) = value.strip_prefix('/') {
