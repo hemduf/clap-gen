@@ -157,7 +157,22 @@ fn compile_ir(path: &Path) -> Result<CanonicalIr, String> {
 
 fn generate(metadata_path: &Path, output_directory: &Path) -> Result<String, String> {
     let ir = compile_ir(metadata_path)?;
-    let plan = codegen::render(&ir);
+    let current_directory = env::current_dir()
+        .map_err(|error| format!("failed to resolve current directory: {error}"))?;
+    let dependency_base = if metadata_path.is_absolute() {
+        metadata_path
+            .parent()
+            .unwrap_or_else(|| Path::new("/"))
+            .to_path_buf()
+    } else {
+        current_directory.clone()
+    };
+    let absolute_output = if output_directory.is_absolute() {
+        output_directory.to_path_buf()
+    } else {
+        current_directory.join(output_directory)
+    };
+    let plan = codegen::render_for_output(&ir, &dependency_base, &absolute_output);
     codegen::write(&plan, output_directory)?;
     Ok(format!(
         "generated {}\nmanifest: {}",

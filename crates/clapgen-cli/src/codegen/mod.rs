@@ -18,6 +18,14 @@ pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
     render::render(ir)
 }
 
+pub(crate) fn render_for_output(
+    ir: &crate::ir::CanonicalIr,
+    dependency_base: &Path,
+    output_directory: &Path,
+) -> GenerationPlan {
+    render::render_for_output(ir, dependency_base, output_directory)
+}
+
 pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), String> {
     writer::write(plan, directory)
 }
