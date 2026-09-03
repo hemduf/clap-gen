@@ -201,5 +201,7 @@ if(BUILD_TESTING)
       NAME clapgen.codegen.issue63.discovery_hardening_smoke
       COMMAND clapgen_issue63_discovery_hardening_smoke
     )
+
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue64/Issue64.cmake")
   endif()
 endif()
