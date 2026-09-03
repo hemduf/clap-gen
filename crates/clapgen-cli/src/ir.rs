@@ -94,11 +94,7 @@ pub(crate) fn build_ir(
     })
 }
 
-fn validate_descriptor_c_strings(
-    path: &Path,
-    source: &str,
-    plugin: &PluginIr,
-) -> Result<(), String> {
+pub(crate) fn descriptor_c_string_violation(plugin: &PluginIr) -> Option<&'static str> {
     for (field, value) in [
         ("id", Some(plugin.id.as_str())),
         ("name", Some(plugin.name.as_str())),
@@ -110,24 +106,32 @@ fn validate_descriptor_c_strings(
         ("description", plugin.description.as_deref()),
     ] {
         if value.is_some_and(|value| value.contains('\0')) {
-            return Err(descriptor_nul_diagnostic(path, source, &format!("field `{field}`")));
+            return Some(field);
         }
     }
 
-    if plugin.features.iter().any(|feature| feature.contains('\0')) {
-        return Err(descriptor_nul_diagnostic(path, source, "feature"));
-    }
+    plugin.features.iter().any(|feature| feature.contains('\0')).then_some("feature")
+}
 
-    Ok(())
+fn validate_descriptor_c_strings(
+    path: &Path,
+    source: &str,
+    plugin: &PluginIr,
+) -> Result<(), String> {
+    let Some(subject) = descriptor_c_string_violation(plugin) else {
+        return Ok(());
+    };
+    Err(descriptor_nul_diagnostic(path, source, subject))
 }
 
 fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String {
+    let node = if subject == "feature" { "feature" } else { "plugin" };
     let line = source
         .lines()
         .enumerate()
         .find_map(|(index, line)| {
             let line = line.trim_start();
-            line.strip_prefix("plugin")
+            line.strip_prefix(node)
                 .is_some_and(|rest| {
                     rest.is_empty()
                         || rest.starts_with('{')
@@ -136,6 +140,8 @@ fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String
                 .then_some(index + 1)
         })
         .unwrap_or(1);
+    let subject =
+        if subject == "feature" { "feature".to_owned() } else { format!("field `{subject}`") };
     format!(
         "{}:{line}: plugin descriptor {subject} contains an embedded NUL character\nhint: remove U+0000 because CLAP descriptor fields are C strings and cannot represent embedded NUL bytes",
         path.display()

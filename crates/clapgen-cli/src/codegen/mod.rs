@@ -46,6 +46,8 @@ mod issue39_tests;
 #[cfg(test)]
 mod issue45_tests;
 #[cfg(test)]
+mod issue46_collection_review_tests;
+#[cfg(test)]
 mod issue46_tests;
 #[cfg(test)]
 mod tests;
