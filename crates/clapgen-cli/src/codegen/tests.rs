@@ -48,6 +48,7 @@ fn fixed_output_contract_is_stable() {
             "clapgen.d",
             "clapgen.manifest.kdl",
             "clapgen.sources.kdl",
+            "clapgen_descriptors.hpp",
             "clapgen_ids.hpp",
             "clapgen_metadata.cpp",
             "clapgen_metadata.hpp",
