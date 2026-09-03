@@ -8,7 +8,8 @@ use super::{
 };
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
-    render_with_depfile(ir, depfile::render(ir).into_bytes())
+    let depfile = depfile::render(ir);
+    render_with_depfile(ir, depfile.as_bytes())
 }
 
 pub(crate) fn render_for_output(
@@ -16,13 +17,11 @@ pub(crate) fn render_for_output(
     dependency_base: &Path,
     output_directory: &Path,
 ) -> GenerationPlan {
-    render_with_depfile(
-        ir,
-        depfile::render_for_output(ir, dependency_base, output_directory).into_bytes(),
-    )
+    let depfile = depfile::render_for_output(ir, dependency_base, output_directory);
+    render_with_depfile(ir, depfile.as_bytes())
 }
 
-fn render_with_depfile(ir: &CanonicalIr, depfile: Vec<u8>) -> GenerationPlan {
+fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
     let manifest = manifest::render(ir).into_bytes();
     let metadata_header = metadata_cpp::header(ir).into_bytes();
     let metadata_source = metadata_cpp::source(ir).into_bytes();
@@ -34,7 +33,7 @@ fn render_with_depfile(ir: &CanonicalIr, depfile: Vec<u8>) -> GenerationPlan {
         .map(|path| GeneratedFile {
             path,
             bytes: match path {
-                "clapgen.d" => depfile.clone(),
+                "clapgen.d" => depfile.to_vec(),
                 "clapgen.manifest.kdl" => manifest.clone(),
                 "clapgen.sources.kdl" => sources.clone(),
                 "clapgen_metadata.cpp" => metadata_source.clone(),

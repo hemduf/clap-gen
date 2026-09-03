@@ -7,7 +7,8 @@ use super::dependency;
 const TARGET: &str = "clapgen.manifest.kdl";
 
 pub(crate) fn render(ir: &CanonicalIr) -> String {
-    render_dependencies(dependency::collect(ir))
+    let dependencies = dependency::collect(ir);
+    render_dependencies(&dependencies)
 }
 
 pub(crate) fn render_for_output(
@@ -23,11 +24,11 @@ pub(crate) fn render_for_output(
             let physical = dependency::resolve_from_base(&base, &path);
             dependency::relative_path(&output, &physical).unwrap_or(physical)
         })
-        .collect();
-    render_dependencies(dependencies)
+        .collect::<Vec<_>>();
+    render_dependencies(&dependencies)
 }
 
-fn render_dependencies(dependencies: Vec<String>) -> String {
+fn render_dependencies(dependencies: &[String]) -> String {
     let dependencies = dependencies
         .iter()
         .map(|path| dependency::depfile_escape(path))
