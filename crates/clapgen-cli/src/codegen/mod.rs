@@ -26,7 +26,7 @@ pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
 pub(crate) fn render_descriptors_for_plugins(
     plugins: &[crate::ir::PluginIr],
 ) -> Result<String, String> {
-    Ok(descriptor_cpp::header_for_plugins(plugins))
+    descriptor_cpp::header_for_plugins(plugins)
 }
 
 pub(crate) fn render_for_output(
