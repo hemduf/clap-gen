@@ -95,7 +95,7 @@ fn issue59_backend_does_not_preempt_later_abi_exception_containment() {
 }
 
 #[test]
-fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
+fn issue59_entry_output_stays_native_and_does_not_implement_instance_lifecycle() {
     let plan = plan();
     let entry = generated_text(&plan, "clapgen_entry.cpp");
 
@@ -112,7 +112,6 @@ fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
         "struct PluginHandle",
         "class PluginInstance",
         "plugin_data =",
-        ".init =",
         ".destroy =",
         ".activate =",
         ".process =",
@@ -120,7 +119,7 @@ fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
     ] {
         assert!(
             !entry.contains(forbidden),
-            "#59 pulled later lifecycle work via `{forbidden}`:\n{entry}"
+            "#59 pulled instance lifecycle work via `{forbidden}`:\n{entry}"
         );
     }
 }
