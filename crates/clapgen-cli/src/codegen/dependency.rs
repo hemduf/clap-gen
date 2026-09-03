@@ -164,8 +164,8 @@ fn split_prefix(value: &str) -> (String, &str) {
         let share = components.next().unwrap_or_default();
         if !server.is_empty() && !share.is_empty() {
             let prefix_len = 2 + server.len() + 1 + share.len();
-            let tail = value[prefix_len..].strip_prefix('/').unwrap_or(&value[prefix_len..]);
-            return (value[..prefix_len].to_owned(), tail);
+            let tail = &value[prefix_len..];
+            return (value[..prefix_len].to_owned(), tail.strip_prefix('/').unwrap_or(tail));
         }
         return ("//".to_owned(), remainder);
     }
