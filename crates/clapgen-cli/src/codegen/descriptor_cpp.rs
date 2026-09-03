@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::ir::{CanonicalIr, PluginIr};
+use crate::ir::{CanonicalIr, PluginIr, descriptor_c_string_violation};
 
 use super::cpp_literal;
 
@@ -13,7 +13,16 @@ pub(crate) fn header(ir: &CanonicalIr) -> String {
 
 pub(crate) fn header_for_plugins(plugins: &[PluginIr]) -> Result<String, String> {
     for plugin in plugins {
-        validate_plugin_c_strings(plugin)?;
+        if let Some(subject) = descriptor_c_string_violation(plugin) {
+            let subject = if subject == "feature" {
+                "feature".to_owned()
+            } else {
+                format!("field `{subject}`")
+            };
+            return Err(format!(
+                "plugin descriptor {subject} contains an embedded NUL character"
+            ));
+        }
     }
 
     let mut plugins = plugins.iter().collect::<Vec<_>>();
@@ -37,31 +46,6 @@ pub(crate) fn header_for_plugins(plugins: &[PluginIr]) -> Result<String, String>
     render_descriptor_table(&mut output, plugins.len());
     output.push_str("\n} // namespace clapgen::generated\n");
     Ok(output)
-}
-
-fn validate_plugin_c_strings(plugin: &PluginIr) -> Result<(), String> {
-    for (field, value) in [
-        ("id", Some(plugin.id.as_str())),
-        ("name", Some(plugin.name.as_str())),
-        ("vendor", Some(plugin.vendor.as_str())),
-        ("version", Some(plugin.version.as_str())),
-        ("url", plugin.url.as_deref()),
-        ("manual-url", plugin.manual_url.as_deref()),
-        ("support-url", plugin.support_url.as_deref()),
-        ("description", plugin.description.as_deref()),
-    ] {
-        if value.is_some_and(|value| value.contains('\0')) {
-            return Err(format!(
-                "plugin descriptor field `{field}` contains an embedded NUL character"
-            ));
-        }
-    }
-
-    if plugin.features.iter().any(|feature| feature.contains('\0')) {
-        return Err("plugin descriptor feature contains an embedded NUL character".to_owned());
-    }
-
-    Ok(())
 }
 
 fn render_feature_array(output: &mut String, index: usize, plugin: &PluginIr) {
