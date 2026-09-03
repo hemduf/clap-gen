@@ -172,6 +172,18 @@ fn descriptor_exposed_c_strings_reject_embedded_nul_before_codegen() {
 }
 
 #[test]
+fn cxx_string_literal_escaping_has_one_codegen_authority() {
+    let descriptor_renderer = include_str!("descriptor_cpp.rs");
+    let metadata_renderer = include_str!("metadata_cpp.rs");
+
+    assert!(
+        !descriptor_renderer.contains("fn cpp_string(")
+            && !metadata_renderer.contains("fn cpp_string("),
+        "C++ string literal escaping must live in one shared codegen helper"
+    );
+}
+
+#[test]
 fn descriptor_generation_is_deterministic() {
     let first = plan_from(RICH_SOURCE);
     let second = plan_from(RICH_SOURCE);
