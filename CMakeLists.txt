@@ -182,5 +182,24 @@ if(BUILD_TESTING)
     target_link_libraries(clapgen_issue62_entry_smoke PRIVATE Threads::Threads)
     clapgen_enable_warnings(clapgen_issue62_entry_smoke)
     add_test(NAME clapgen.codegen.issue62.entry_smoke COMMAND clapgen_issue62_entry_smoke)
+
+    add_executable(
+      clapgen_issue63_discovery_hardening_smoke
+      tests/codegen/issue63/discovery_hardening_smoke.cpp
+    )
+    add_dependencies(clapgen_issue63_discovery_hardening_smoke clapgen_issue59_generated)
+    target_compile_features(clapgen_issue63_discovery_hardening_smoke PRIVATE cxx_std_20)
+    target_include_directories(
+      clapgen_issue63_discovery_hardening_smoke
+      PRIVATE
+        "${CLAPGEN_ISSUE59_GENERATED_DIR}"
+        "${clap_SOURCE_DIR}/include"
+    )
+    target_link_libraries(clapgen_issue63_discovery_hardening_smoke PRIVATE Threads::Threads)
+    clapgen_enable_warnings(clapgen_issue63_discovery_hardening_smoke)
+    add_test(
+      NAME clapgen.codegen.issue63.discovery_hardening_smoke
+      COMMAND clapgen_issue63_discovery_hardening_smoke
+    )
   endif()
 endif()
