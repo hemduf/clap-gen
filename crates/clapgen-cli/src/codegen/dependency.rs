@@ -87,25 +87,18 @@ pub(crate) fn relative_path(from: &str, to: &str) -> Option<String> {
         return None;
     }
 
-    let common = from_parts
-        .iter()
-        .zip(&to_parts)
-        .take_while(|(left, right)| {
-            if case_insensitive {
-                left.eq_ignore_ascii_case(right)
-            } else {
-                left == right
-            }
-        })
-        .count();
+    let common =
+        from_parts
+            .iter()
+            .zip(&to_parts)
+            .take_while(|(left, right)| {
+                if case_insensitive { left.eq_ignore_ascii_case(right) } else { left == right }
+            })
+            .count();
 
     let mut parts = vec!["..".to_owned(); from_parts.len() - common];
     parts.extend(to_parts.into_iter().skip(common));
-    Some(if parts.is_empty() {
-        ".".to_owned()
-    } else {
-        parts.join("/")
-    })
+    Some(if parts.is_empty() { ".".to_owned() } else { parts.join("/") })
 }
 
 fn resolve_from_owner(owner: &str, dependency: &str) -> String {
@@ -140,11 +133,7 @@ fn path_parts(value: &str) -> (String, Vec<String>) {
     if let Some(remainder) = normalized.strip_prefix('/') {
         return (
             "/".to_owned(),
-            remainder
-                .split('/')
-                .filter(|part| !part.is_empty())
-                .map(ToOwned::to_owned)
-                .collect(),
+            remainder.split('/').filter(|part| !part.is_empty()).map(ToOwned::to_owned).collect(),
         );
     }
     let bytes = normalized.as_bytes();
@@ -160,11 +149,7 @@ fn path_parts(value: &str) -> (String, Vec<String>) {
     }
     (
         String::new(),
-        normalized
-            .split('/')
-            .filter(|part| !part.is_empty())
-            .map(ToOwned::to_owned)
-            .collect(),
+        normalized.split('/').filter(|part| !part.is_empty()).map(ToOwned::to_owned).collect(),
     )
 }
 

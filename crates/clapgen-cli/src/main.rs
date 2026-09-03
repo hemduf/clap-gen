@@ -160,10 +160,7 @@ fn generate(metadata_path: &Path, output_directory: &Path) -> Result<String, Str
     let current_directory = env::current_dir()
         .map_err(|error| format!("failed to resolve current directory: {error}"))?;
     let dependency_base = if metadata_path.is_absolute() {
-        metadata_path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_path_buf()
+        metadata_path.parent().unwrap_or_else(|| Path::new("/")).to_path_buf()
     } else {
         current_directory.clone()
     };
