@@ -94,11 +94,7 @@ pub(crate) fn build_ir(
     })
 }
 
-fn validate_descriptor_c_strings(
-    path: &Path,
-    source: &str,
-    plugin: &PluginIr,
-) -> Result<(), String> {
+pub(crate) fn descriptor_c_string_violation(plugin: &PluginIr) -> Option<&'static str> {
     for (field, value) in [
         ("id", Some(plugin.id.as_str())),
         ("name", Some(plugin.name.as_str())),
@@ -110,15 +106,24 @@ fn validate_descriptor_c_strings(
         ("description", plugin.description.as_deref()),
     ] {
         if value.is_some_and(|value| value.contains('\0')) {
-            return Err(descriptor_nul_diagnostic(path, source, &format!("field `{field}`")));
+            return Some(field);
         }
     }
 
-    if plugin.features.iter().any(|feature| feature.contains('\0')) {
-        return Err(descriptor_nul_diagnostic(path, source, "feature"));
-    }
+    plugin.features.iter().any(|feature| feature.contains('\0')).then_some("feature")
+}
 
-    Ok(())
+fn validate_descriptor_c_strings(
+    path: &Path,
+    source: &str,
+    plugin: &PluginIr,
+) -> Result<(), String> {
+    let Some(subject) = descriptor_c_string_violation(plugin) else {
+        return Ok(());
+    };
+    let subject =
+        if subject == "feature" { "feature".to_owned() } else { format!("field `{subject}`") };
+    Err(descriptor_nul_diagnostic(path, source, &subject))
 }
 
 fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String {
