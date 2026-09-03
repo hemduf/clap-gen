@@ -108,16 +108,7 @@ fn portable_dependency_paths_normalize_windows_separators_and_escape_depfile_tok
 
 #[test]
 fn windows_unc_normalization_never_escapes_the_share_root() {
-    assert_eq!(
-        "//server/share/asset.svg",
-        normalize_path(r"\\server\share\..\asset.svg")
-    );
-    assert_eq!(
-        "//server/share/asset.svg",
-        normalize_path("//server/share/../../asset.svg")
-    );
-    assert_eq!(
-        "//server/share/asset.svg",
-        normalize_path("//server/share/nested/../asset.svg")
-    );
+    assert_eq!("//server/share/asset.svg", normalize_path(r"\\server\share\..\asset.svg"));
+    assert_eq!("//server/share/asset.svg", normalize_path("//server/share/../../asset.svg"));
+    assert_eq!("//server/share/asset.svg", normalize_path("//server/share/nested/../asset.svg"));
 }
