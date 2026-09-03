@@ -33,6 +33,8 @@ pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), Strin
 #[cfg(test)]
 mod issue39_tests;
 #[cfg(test)]
+mod issue45_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod writer_tests;
