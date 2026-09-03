@@ -131,7 +131,11 @@ if(BUILD_TESTING)
       COMMAND clapgen_issue59_backend_spy_smoke
     )
 
-    add_executable(clapgen_issue60_factory_smoke tests/codegen/issue60/factory_smoke.cpp)
+    add_executable(
+      clapgen_issue60_factory_smoke
+      tests/codegen/issue60/factory_smoke.cpp
+      "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
+    )
     add_dependencies(clapgen_issue60_factory_smoke clapgen_issue59_generated)
     target_compile_features(clapgen_issue60_factory_smoke PRIVATE cxx_std_20)
     target_include_directories(
