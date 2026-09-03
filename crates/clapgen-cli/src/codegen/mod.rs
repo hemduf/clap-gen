@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+mod cpp_literal;
 mod dependency;
 mod depfile;
+mod descriptor_cpp;
 mod ids_cpp;
 mod manifest;
 mod metadata_cpp;
@@ -20,6 +22,13 @@ pub(crate) fn render(ir: &crate::ir::CanonicalIr) -> GenerationPlan {
     render::render(ir)
 }
 
+#[cfg(test)]
+pub(crate) fn render_descriptors_for_plugins(
+    plugins: &[crate::ir::PluginIr],
+) -> Result<String, String> {
+    descriptor_cpp::header_for_plugins(plugins)
+}
+
 pub(crate) fn render_for_output(
     ir: &crate::ir::CanonicalIr,
     dependency_base: &Path,
@@ -36,6 +45,8 @@ pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), Strin
 mod issue39_tests;
 #[cfg(test)]
 mod issue45_tests;
+#[cfg(test)]
+mod issue46_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

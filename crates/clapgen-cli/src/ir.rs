@@ -75,6 +75,7 @@ pub(crate) fn build_ir(
 
     let semantic = reviewed::build_ir(path, source, metadata)?;
     let typed = reviewed::typed_ir(&semantic);
+    validate_descriptor_c_strings(path, source, &typed.plugin)?;
     let version = semantic.version;
     let stable_extensions = ExtensionSet(semantic.stable_extensions.len());
     let draft_extensions = ExtensionSet(semantic.draft_extensions.len());
@@ -91,6 +92,54 @@ pub(crate) fn build_ir(
         dependencies,
         sources: bundle.sources,
     })
+}
+
+fn validate_descriptor_c_strings(
+    path: &Path,
+    source: &str,
+    plugin: &PluginIr,
+) -> Result<(), String> {
+    for (field, value) in [
+        ("id", Some(plugin.id.as_str())),
+        ("name", Some(plugin.name.as_str())),
+        ("vendor", Some(plugin.vendor.as_str())),
+        ("version", Some(plugin.version.as_str())),
+        ("url", plugin.url.as_deref()),
+        ("manual-url", plugin.manual_url.as_deref()),
+        ("support-url", plugin.support_url.as_deref()),
+        ("description", plugin.description.as_deref()),
+    ] {
+        if value.is_some_and(|value| value.contains('\0')) {
+            return Err(descriptor_nul_diagnostic(path, source, &format!("field `{field}`")));
+        }
+    }
+
+    if plugin.features.iter().any(|feature| feature.contains('\0')) {
+        return Err(descriptor_nul_diagnostic(path, source, "feature"));
+    }
+
+    Ok(())
+}
+
+fn descriptor_nul_diagnostic(path: &Path, source: &str, subject: &str) -> String {
+    let line = source
+        .lines()
+        .enumerate()
+        .find_map(|(index, line)| {
+            let line = line.trim_start();
+            line.strip_prefix("plugin")
+                .is_some_and(|rest| {
+                    rest.is_empty()
+                        || rest.starts_with('{')
+                        || rest.chars().next().is_some_and(char::is_whitespace)
+                })
+                .then_some(index + 1)
+        })
+        .unwrap_or(1);
+    format!(
+        "{}:{line}: plugin descriptor {subject} contains an embedded NUL character\nhint: remove U+0000 because CLAP descriptor fields are C strings and cannot represent embedded NUL bytes",
+        path.display()
+    )
 }
 
 fn load_persistent_ids(

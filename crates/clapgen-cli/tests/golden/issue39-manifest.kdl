@@ -2,6 +2,7 @@ generation-manifest version=1 {
     output "clapgen.d"
     output "clapgen.manifest.kdl"
     output "clapgen.sources.kdl"
+    output "clapgen_descriptors.hpp"
     output "clapgen_ids.hpp"
     output "clapgen_metadata.cpp"
     output "clapgen_metadata.hpp"

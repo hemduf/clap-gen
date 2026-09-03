@@ -3,8 +3,8 @@ use std::path::Path;
 use crate::ir::CanonicalIr;
 
 use super::{
-    GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, ids_cpp, manifest, metadata_cpp,
-    processor_cpp, resources_cpp, source_map,
+    GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, descriptor_cpp, ids_cpp, manifest,
+    metadata_cpp, processor_cpp, resources_cpp, source_map,
 };
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
@@ -22,6 +22,7 @@ pub(crate) fn render_for_output(
 }
 
 fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
+    let descriptor_header = descriptor_cpp::header(ir).into_bytes();
     let ids_header = ids_cpp::header(ir).into_bytes();
     let manifest = manifest::render(ir).into_bytes();
     let metadata_header = metadata_cpp::header(ir).into_bytes();
@@ -38,6 +39,7 @@ fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
                 "clapgen.d" => depfile.to_vec(),
                 "clapgen.manifest.kdl" => manifest.clone(),
                 "clapgen.sources.kdl" => sources.clone(),
+                "clapgen_descriptors.hpp" => descriptor_header.clone(),
                 "clapgen_ids.hpp" => ids_header.clone(),
                 "clapgen_metadata.cpp" => metadata_source.clone(),
                 "clapgen_metadata.hpp" => metadata_header.clone(),
