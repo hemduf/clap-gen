@@ -2,6 +2,7 @@ pub(crate) const OUTPUT_NAMES: &[&str] = &[
     "clapgen.d",
     "clapgen.manifest.kdl",
     "clapgen.sources.kdl",
+    "clapgen_descriptors.hpp",
     "clapgen_ids.hpp",
     "clapgen_metadata.cpp",
     "clapgen_metadata.hpp",
