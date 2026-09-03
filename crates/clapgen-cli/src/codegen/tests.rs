@@ -49,15 +49,16 @@ fn fixed_output_contract_is_stable() {
             "clapgen.manifest.kdl",
             "clapgen.sources.kdl",
             "clapgen_descriptors.hpp",
+            "clapgen_entry.cpp",
             "clapgen_ids.hpp",
+            "clapgen_instance_backend.cpp",
+            "clapgen_instance_backend.hpp",
             "clapgen_metadata.cpp",
             "clapgen_metadata.hpp",
             "clapgen_processor.hpp",
             "clapgen_resources.hpp",
         ]
     );
-    assert!(OUTPUT_NAMES.iter().all(|name| !name.contains("entry")));
-    assert!(OUTPUT_NAMES.iter().all(|name| !name.contains("factory")));
     assert!(OUTPUT_NAMES.iter().all(|name| !name.contains("plugin.cpp")));
 }
 

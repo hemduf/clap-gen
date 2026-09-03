@@ -4,7 +4,9 @@ mod cpp_literal;
 mod dependency;
 mod depfile;
 mod descriptor_cpp;
+mod entry_cpp;
 mod ids_cpp;
+mod instance_backend_cpp;
 mod manifest;
 mod metadata_cpp;
 mod outputs;
@@ -49,6 +51,8 @@ mod issue45_tests;
 mod issue46_collection_review_tests;
 #[cfg(test)]
 mod issue46_tests;
+#[cfg(test)]
+mod issue59_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
