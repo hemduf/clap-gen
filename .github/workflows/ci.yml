@@ -102,13 +102,15 @@ jobs:
           tests/codegen/issue61/create_plugin_spy_smoke.cpp
           tests/codegen/issue62/entry_smoke.cpp
           tests/codegen/issue63/discovery_hardening_smoke.cpp
+          tests/codegen/issue64/module_backend.cpp
+          tests/codegen/issue64/dso_loader_smoke.cpp
 
       - name: C++ static analysis (Unix)
         if: runner.os != 'Windows'
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63
+          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -117,7 +119,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63
+          runtime tests/runtime tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: Configure C++
         run: >-
