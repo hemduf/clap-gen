@@ -42,14 +42,13 @@ fn generated_processor_contract_uses_only_native_clap_types() {
     for required in [
         "#include <clap/clap.h>",
         "concept NativeProcessor",
-        "processor.init()",
-        "processor.activate(sample_rate, min_frames, max_frames)",
-        "processor.deactivate()",
-        "processor.start_processing()",
-        "processor.stop_processing()",
-        "processor.reset()",
-        "processor.process(process)",
-        "std::same_as<clap_process_status>",
+        "static_cast<bool (Processor::*)()>(&Processor::init)",
+        "static_cast<bool (Processor::*)(double, std::uint32_t, std::uint32_t)>(&Processor::activate)",
+        "static_cast<void (Processor::*)()>(&Processor::deactivate)",
+        "static_cast<bool (Processor::*)()>(&Processor::start_processing)",
+        "static_cast<void (Processor::*)()>(&Processor::stop_processing)",
+        "static_cast<void (Processor::*)()>(&Processor::reset)",
+        "static_cast<clap_process_status (Processor::*)(const clap_process_t*)>(&Processor::process)",
     ] {
         assert!(contract.contains(required), "missing `{required}`:\n{contract}");
     }
