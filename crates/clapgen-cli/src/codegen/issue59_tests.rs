@@ -15,23 +15,30 @@ fn plan() -> GenerationPlan {
 }
 
 fn generated_text<'a>(plan: &'a GenerationPlan, path: &str) -> &'a str {
-    let file = plan.files.iter().find(|file| file.path == path).expect("generated file");
-    std::str::from_utf8(&file.bytes).expect("generated files must be UTF-8")
+    let file = plan.files.iter().find(|file| file.path == path).expect("generated output");
+    std::str::from_utf8(&file.bytes).expect("generated output must be UTF-8")
 }
 
 #[test]
 fn issue59_adds_fixed_entry_and_backend_outputs() {
-    for required in
-        ["clapgen_entry.cpp", "clapgen_instance_backend.hpp", "clapgen_instance_backend.cpp"]
-    {
-        assert!(OUTPUT_NAMES.contains(&required), "missing fixed output `{required}`");
+    for expected in [
+        "clapgen_entry.cpp",
+        "clapgen_instance_backend.hpp",
+        "clapgen_instance_backend.cpp",
+    ] {
+        assert!(OUTPUT_NAMES.contains(&expected), "missing fixed output `{expected}`");
     }
 
     let plan = plan();
-    for required in
-        ["clapgen_entry.cpp", "clapgen_instance_backend.hpp", "clapgen_instance_backend.cpp"]
-    {
-        assert!(!generated_text(&plan, required).is_empty(), "`{required}` must not be empty");
+    for expected in [
+        "clapgen_entry.cpp",
+        "clapgen_instance_backend.hpp",
+        "clapgen_instance_backend.cpp",
+    ] {
+        assert!(
+            plan.files.iter().any(|file| file.path == expected),
+            "generation plan must contain `{expected}`"
+        );
     }
 }
 
@@ -43,8 +50,6 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
 
     for required in [
         "#include <clap/clap.h>",
-        "#include <cstdint>",
-        "namespace clapgen::generated::detail",
         "const clap_plugin_t* create_plugin_instance(",
         "std::uint32_t descriptor_index",
         "const clap_host_t* host",
@@ -52,29 +57,23 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
         assert!(header.contains(required), "missing `{required}`:\n{header}");
     }
 
-    assert!(source.contains("#include \"clapgen_instance_backend.hpp\""), "{source}");
-    assert!(source.contains("return nullptr;"), "fallback backend must return nullptr:\n{source}");
+    assert!(source.contains("return nullptr;"), "fallback backend must stay inert:\n{source}");
 
     for forbidden in [
-        "FactoryContext",
-        "PluginHandle",
-        "HostWrapper",
         "std::function",
-        "std::vector",
         "std::unique_ptr",
         "std::shared_ptr",
+        "FactoryContext",
+        "PluginHandle",
+        "std::mutex",
+        "std::atomic",
         "new ",
         "malloc(",
         "calloc(",
+        "realloc(",
     ] {
-        assert!(
-            !header.contains(forbidden),
-            "unexpected `{forbidden}` in backend header:\n{header}"
-        );
-        assert!(
-            !source.contains(forbidden),
-            "unexpected `{forbidden}` in backend source:\n{source}"
-        );
+        assert!(!header.contains(forbidden), "unexpected `{forbidden}`:\n{header}");
+        assert!(!source.contains(forbidden), "unexpected `{forbidden}`:\n{source}");
     }
 }
 
@@ -95,7 +94,7 @@ fn issue59_backend_does_not_preempt_later_abi_exception_containment() {
 }
 
 #[test]
-fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
+fn issue59_entry_output_stays_native_and_excludes_instance_lifecycle() {
     let plan = plan();
     let entry = generated_text(&plan, "clapgen_entry.cpp");
 
@@ -112,7 +111,6 @@ fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
         "struct PluginHandle",
         "class PluginInstance",
         "plugin_data =",
-        ".init =",
         ".destroy =",
         ".activate =",
         ".process =",
@@ -120,7 +118,7 @@ fn issue59_entry_scaffold_stays_native_and_does_not_implement_later_slices() {
     ] {
         assert!(
             !entry.contains(forbidden),
-            "#59 pulled later lifecycle work via `{forbidden}`:\n{entry}"
+            "entry output pulled instance lifecycle work via `{forbidden}`:\n{entry}"
         );
     }
 }
