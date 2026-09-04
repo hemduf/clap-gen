@@ -60,8 +60,8 @@ int lookup_native_tables_by_string_content() {
     return 3;
   }
 
-  char copied_latency[] = CLAP_EXT_LATENCY;
-  char copied_tail[] = CLAP_EXT_TAIL;
+  char copied_latency[] = "clap.latency";
+  char copied_tail[] = "clap.tail";
   const void* latency = detail::lookup_plugin_extension(test_bindings, 2u, copied_latency);
   const void* tail = detail::lookup_plugin_extension(test_bindings, 2u, copied_tail);
   if (latency != &latency_table || tail != &tail_table) {
@@ -80,8 +80,8 @@ int production_plugin_exposes_no_unowned_extension() {
     return 6;
   }
 
-  char copied_latency[] = CLAP_EXT_LATENCY;
-  char copied_tail[] = CLAP_EXT_TAIL;
+  char copied_latency[] = "clap.latency";
+  char copied_tail[] = "clap.tail";
   if (plugin->get_extension(plugin, copied_latency) != nullptr ||
       plugin->get_extension(plugin, copied_tail) != nullptr ||
       plugin->get_extension(plugin, nullptr) != nullptr) {
