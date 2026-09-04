@@ -62,3 +62,16 @@ fn issue49_lifecycle_guards_invalid_ordering_and_preserves_native_values() {
         assert!(header.contains(required), "missing `{required}`:\n{header}");
     }
 }
+
+#[test]
+fn issue49_failed_init_is_terminal_but_still_destroyable() {
+    let header = instance_backend_cpp::header();
+
+    for required in [
+        "InitFailed",
+        "instance->state_ = LifecycleState::InitFailed;",
+        "instance->state_ != LifecycleState::InitFailed",
+    ] {
+        assert!(header.contains(required), "missing `{required}`:\n{header}");
+    }
+}
