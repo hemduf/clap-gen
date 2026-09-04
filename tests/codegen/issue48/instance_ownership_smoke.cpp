@@ -1,5 +1,6 @@
 #include <clap/clap.h>
 
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -12,69 +13,71 @@ namespace detail = clapgen::generated::detail;
 namespace {
 
 struct LifetimeToken {
-  LifetimeToken() { ++alive; }
-  ~LifetimeToken() { --alive; }
+  LifetimeToken() { alive.fetch_add(1, std::memory_order_relaxed); }
+  ~LifetimeToken() { alive.fetch_sub(1, std::memory_order_relaxed); }
 
-  static inline int alive = 0;
+  static inline std::atomic<int> alive{0};
 };
 
 struct InstrumentedProcessor {
   InstrumentedProcessor() {
-    if (throw_on_construct) {
+    if (throw_on_construct.load(std::memory_order_relaxed)) {
       throw std::runtime_error("injected processor construction failure");
     }
-    instance_id = next_instance_id++;
-    ++constructed;
+    instance_id = next_instance_id.fetch_add(1u, std::memory_order_relaxed);
+    constructed.fetch_add(1, std::memory_order_relaxed);
   }
 
-  ~InstrumentedProcessor() { ++destroyed; }
+  ~InstrumentedProcessor() { destroyed.fetch_add(1, std::memory_order_relaxed); }
 
   bool init() {
-    ++hook_calls;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
   bool activate(double, std::uint32_t, std::uint32_t) {
-    ++hook_calls;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
-  void deactivate() { ++hook_calls; }
+  void deactivate() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
 
   bool start_processing() {
-    ++hook_calls;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
-  void stop_processing() { ++hook_calls; }
-  void reset() { ++hook_calls; }
+  void stop_processing() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
+  void reset() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
 
   clap_process_status process(const clap_process_t*) {
-    ++hook_calls;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
     return CLAP_PROCESS_CONTINUE;
   }
 
   static void reset_counters() {
-    throw_on_construct = false;
-    constructed = 0;
-    destroyed = 0;
-    hook_calls = 0;
-    next_instance_id = 1u;
-    LifetimeToken::alive = 0;
+    throw_on_construct.store(false, std::memory_order_relaxed);
+    constructed.store(0, std::memory_order_relaxed);
+    destroyed.store(0, std::memory_order_relaxed);
+    hook_calls.store(0, std::memory_order_relaxed);
+    next_instance_id.store(1u, std::memory_order_relaxed);
+    LifetimeToken::alive.store(0, std::memory_order_relaxed);
   }
 
   LifetimeToken lifetime{};
   std::uint32_t instance_id = 0u;
   int mutable_value = 0;
 
-  static inline bool throw_on_construct = false;
-  static inline int constructed = 0;
-  static inline int destroyed = 0;
-  static inline int hook_calls = 0;
-  static inline std::uint32_t next_instance_id = 1u;
+  static inline std::atomic<bool> throw_on_construct{false};
+  static inline std::atomic<int> constructed{0};
+  static inline std::atomic<int> destroyed{0};
+  static inline std::atomic<int> hook_calls{0};
+  static inline std::atomic<std::uint32_t> next_instance_id{1u};
 };
 
 static_assert(generated::NativeProcessor<InstrumentedProcessor>);
+
+int counter(const std::atomic<int>& value) { return value.load(std::memory_order_relaxed); }
 
 clap_host_t make_host() {
   clap_host_t host{};
@@ -90,7 +93,7 @@ using Instance = detail::PluginInstance<InstrumentedProcessor>;
 
 int constructor_failure_is_clean(const clap_host_t* host) {
   InstrumentedProcessor::reset_counters();
-  InstrumentedProcessor::throw_on_construct = true;
+  InstrumentedProcessor::throw_on_construct.store(true, std::memory_order_relaxed);
 
   bool threw = false;
   try {
@@ -99,8 +102,8 @@ int constructor_failure_is_clean(const clap_host_t* host) {
     threw = true;
   }
 
-  if (!threw || InstrumentedProcessor::constructed != 0 || InstrumentedProcessor::destroyed != 0 ||
-      LifetimeToken::alive != 0) {
+  if (!threw || counter(InstrumentedProcessor::constructed) != 0 ||
+      counter(InstrumentedProcessor::destroyed) != 0 || counter(LifetimeToken::alive) != 0) {
     return 1;
   }
   return 0;
@@ -112,8 +115,8 @@ int setup_failure_cleans_constructed_processor(const clap_host_t* host) {
   if (Instance::create(nullptr, host) != nullptr) {
     return 2;
   }
-  if (InstrumentedProcessor::constructed != 1 || InstrumentedProcessor::destroyed != 1 ||
-      LifetimeToken::alive != 0) {
+  if (counter(InstrumentedProcessor::constructed) != 1 ||
+      counter(InstrumentedProcessor::destroyed) != 1 || counter(LifetimeToken::alive) != 0) {
     return 3;
   }
   return 0;
@@ -159,13 +162,13 @@ int init_failure_remains_destructible(const clap_host_t* host) {
     return 11;
   }
   plugin->on_main_thread(plugin);
-  if (InstrumentedProcessor::hook_calls != 0) {
+  if (counter(InstrumentedProcessor::hook_calls) != 0) {
     return 12;
   }
 
   plugin->destroy(plugin);
-  if (InstrumentedProcessor::constructed != 1 || InstrumentedProcessor::destroyed != 1 ||
-      LifetimeToken::alive != 0) {
+  if (counter(InstrumentedProcessor::constructed) != 1 ||
+      counter(InstrumentedProcessor::destroyed) != 1 || counter(LifetimeToken::alive) != 0) {
     return 13;
   }
   return 0;
@@ -178,8 +181,8 @@ int invalid_index_does_not_construct(const clap_host_t* host) {
           std::numeric_limits<std::uint32_t>::max(), host) != nullptr) {
     return 14;
   }
-  if (InstrumentedProcessor::constructed != 0 || InstrumentedProcessor::destroyed != 0 ||
-      LifetimeToken::alive != 0) {
+  if (counter(InstrumentedProcessor::constructed) != 0 ||
+      counter(InstrumentedProcessor::destroyed) != 0 || counter(LifetimeToken::alive) != 0) {
     return 15;
   }
   return 0;
@@ -210,13 +213,13 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
   }
 
   first->destroy(first);
-  if (InstrumentedProcessor::destroyed != 1 || LifetimeToken::alive != 1 ||
+  if (counter(InstrumentedProcessor::destroyed) != 1 || counter(LifetimeToken::alive) != 1 ||
       second_instance->processor().mutable_value != 7) {
     return 19;
   }
   second->destroy(second);
-  if (InstrumentedProcessor::constructed != 2 || InstrumentedProcessor::destroyed != 2 ||
-      LifetimeToken::alive != 0) {
+  if (counter(InstrumentedProcessor::constructed) != 2 ||
+      counter(InstrumentedProcessor::destroyed) != 2 || counter(LifetimeToken::alive) != 0) {
     return 20;
   }
   return 0;
