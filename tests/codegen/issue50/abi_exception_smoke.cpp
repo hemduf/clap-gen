@@ -111,6 +111,43 @@ const clap_plugin_t* make_plugin(const clap_host_t* host) {
   return detail::create_plugin_instance_for<FaultProcessor>(0u, host);
 }
 
+const clap_plugin_t* make_initialized_plugin(const clap_host_t* host) {
+  const clap_plugin_t* plugin = make_plugin(host);
+  if (plugin == nullptr) {
+    return nullptr;
+  }
+  if (!plugin->init(plugin)) {
+    plugin->destroy(plugin);
+    return nullptr;
+  }
+  return plugin;
+}
+
+const clap_plugin_t* make_active_plugin(const clap_host_t* host) {
+  const clap_plugin_t* plugin = make_initialized_plugin(host);
+  if (plugin == nullptr) {
+    return nullptr;
+  }
+  if (!plugin->activate(plugin, 48000.0, 1u, 1024u)) {
+    plugin->destroy(plugin);
+    return nullptr;
+  }
+  return plugin;
+}
+
+const clap_plugin_t* make_processing_plugin(const clap_host_t* host) {
+  const clap_plugin_t* plugin = make_active_plugin(host);
+  if (plugin == nullptr) {
+    return nullptr;
+  }
+  if (!plugin->start_processing(plugin)) {
+    plugin->deactivate(plugin);
+    plugin->destroy(plugin);
+    return nullptr;
+  }
+  return plugin;
+}
+
 int init_exception_is_terminal(const clap_host_t* host) {
   const clap_plugin_t* plugin = make_plugin(host);
   if (plugin == nullptr) {
@@ -143,8 +180,8 @@ int init_exception_is_terminal(const clap_host_t* host) {
 }
 
 int activate_exception_is_retryable(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin)) {
+  const clap_plugin_t* plugin = make_initialized_plugin(host);
+  if (plugin == nullptr) {
     return 4;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -177,9 +214,8 @@ int activate_exception_is_retryable(const clap_host_t* host) {
 }
 
 int start_exception_is_retryable(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin) ||
-      !plugin->activate(plugin, 48000.0, 1u, 1024u)) {
+  const clap_plugin_t* plugin = make_active_plugin(host);
+  if (plugin == nullptr) {
     return 7;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -211,9 +247,8 @@ int start_exception_is_retryable(const clap_host_t* host) {
 }
 
 int process_exception_maps_to_clap_error(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin) ||
-      !plugin->activate(plugin, 48000.0, 1u, 1024u) || !plugin->start_processing(plugin)) {
+  const clap_plugin_t* plugin = make_processing_plugin(host);
+  if (plugin == nullptr) {
     return 10;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -246,9 +281,8 @@ int process_exception_maps_to_clap_error(const clap_host_t* host) {
 }
 
 int reset_exception_stays_active(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin) ||
-      !plugin->activate(plugin, 48000.0, 1u, 1024u)) {
+  const clap_plugin_t* plugin = make_active_plugin(host);
+  if (plugin == nullptr) {
     return 13;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -276,9 +310,8 @@ int reset_exception_stays_active(const clap_host_t* host) {
 }
 
 int stop_exception_keeps_teardown_viable(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin) ||
-      !plugin->activate(plugin, 48000.0, 1u, 1024u) || !plugin->start_processing(plugin)) {
+  const clap_plugin_t* plugin = make_processing_plugin(host);
+  if (plugin == nullptr) {
     return 16;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -307,9 +340,8 @@ int stop_exception_keeps_teardown_viable(const clap_host_t* host) {
 }
 
 int deactivate_exception_keeps_destroy_viable(const clap_host_t* host) {
-  const clap_plugin_t* plugin = make_plugin(host);
-  if (plugin == nullptr || !plugin->init(plugin) ||
-      !plugin->activate(plugin, 48000.0, 1u, 1024u)) {
+  const clap_plugin_t* plugin = make_active_plugin(host);
+  if (plugin == nullptr) {
     return 19;
   }
   Instance* instance = Instance::from_plugin(plugin);
@@ -366,15 +398,16 @@ int factory_backend_exception_maps_to_null(const clap_host_t* host) {
   if (!clap_entry.init("/tmp/clapgen-issue50")) {
     return 25;
   }
-  const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID));
+  const void* raw_factory = clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID);
+  const auto* factory = static_cast<const clap_plugin_factory_t*>(raw_factory);
   if (factory == nullptr) {
     clap_entry.deinit();
     return 26;
   }
 
+  static const clap_plugin_t sentinel{};
   bool escaped = false;
-  const clap_plugin_t* plugin = reinterpret_cast<const clap_plugin_t*>(1);
+  const clap_plugin_t* plugin = &sentinel;
   try {
     plugin = factory->create_plugin(factory, host, generated::plugin_descriptors[0]->id);
   } catch (...) {
