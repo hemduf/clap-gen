@@ -99,6 +99,7 @@ jobs:
           tests/codegen/issue49/lifecycle_smoke.cpp
           tests/codegen/issue50/abi_exception_smoke.cpp
           tests/codegen/issue51/extension_dispatch_smoke.cpp
+          tests/codegen/issue52/bundle_backend.cpp
           tests/codegen/issue52/bundle_processors.hpp
           tests/codegen/issue52/clapgen_descriptors.hpp
           tests/codegen/issue52/multi_plugin_bundle_smoke.cpp
