@@ -50,6 +50,7 @@ fn fixed_output_contract_is_stable() {
             "clapgen.sources.kdl",
             "clapgen_descriptors.hpp",
             "clapgen_entry.cpp",
+            "clapgen_extensions.hpp",
             "clapgen_ids.hpp",
             "clapgen_instance_backend.cpp",
             "clapgen_instance_backend.hpp",
