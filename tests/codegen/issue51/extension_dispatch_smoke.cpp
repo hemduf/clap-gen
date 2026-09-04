@@ -30,13 +30,27 @@ constinit const detail::PluginExtensionBinding test_bindings[] = {
 };
 
 struct Processor {
-  bool init() { return true; }
-  bool activate(double, std::uint32_t, std::uint32_t) { return true; }
-  void deactivate() {}
-  bool start_processing() { return true; }
-  void stop_processing() {}
-  void reset() {}
-  clap_process_status process(const clap_process_t*) { return CLAP_PROCESS_CONTINUE; }
+  bool init() {
+    ++calls;
+    return true;
+  }
+  bool activate(double, std::uint32_t, std::uint32_t) {
+    ++calls;
+    return true;
+  }
+  void deactivate() { ++calls; }
+  bool start_processing() {
+    ++calls;
+    return true;
+  }
+  void stop_processing() { ++calls; }
+  void reset() { ++calls; }
+  clap_process_status process(const clap_process_t*) {
+    ++calls;
+    return CLAP_PROCESS_CONTINUE;
+  }
+
+  int calls = 0;
 };
 
 clap_host_t make_host() {
