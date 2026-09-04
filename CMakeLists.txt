@@ -57,6 +57,7 @@ if(BUILD_TESTING)
       CLAPGEN_ISSUE59_DESCRIPTORS
       "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_descriptors.hpp"
     )
+    set(CLAPGEN_ISSUE59_PROCESSOR "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_processor.hpp")
 
     file(
       GLOB_RECURSE CLAPGEN_CODEGEN_RUST_SOURCES
@@ -69,6 +70,7 @@ if(BUILD_TESTING)
         "${CLAPGEN_ISSUE59_BACKEND_HEADER}"
         "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
         "${CLAPGEN_ISSUE59_DESCRIPTORS}"
+        "${CLAPGEN_ISSUE59_PROCESSOR}"
       COMMAND
         "${CLAPGEN_CARGO_EXECUTABLE}" run --quiet -p clapgen-cli -- generate
         --metadata "${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue59/plugin.kdl"
@@ -88,6 +90,7 @@ if(BUILD_TESTING)
         "${CLAPGEN_ISSUE59_BACKEND_HEADER}"
         "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
         "${CLAPGEN_ISSUE59_DESCRIPTORS}"
+        "${CLAPGEN_ISSUE59_PROCESSOR}"
     )
 
     add_library(clapgen_issue59_entry_abi OBJECT tests/codegen/issue59/abi_contract.cpp)
