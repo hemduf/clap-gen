@@ -257,6 +257,7 @@ if(BUILD_TESTING)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue50/Issue50.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue51/Issue51.cmake")
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue52/Issue52.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue64/Issue64.cmake")
   endif()
 endif()
