@@ -42,7 +42,10 @@ fn issue50_documents_borrowed_lifetimes_and_rejects_callback_pointer_retention()
         "clap_process_t and its nested event lists and audio buffers are host-owned",
         "must not be retained after Processor::process() returns",
     ] {
-        assert!(processor.contains(required), "missing processor lifetime note `{required}`:\n{processor}");
+        assert!(
+            processor.contains(required),
+            "missing processor lifetime note `{required}`:\n{processor}"
+        );
     }
 
     for required in [
@@ -50,7 +53,10 @@ fn issue50_documents_borrowed_lifetimes_and_rejects_callback_pointer_retention()
         "plugin descriptors point to immutable generated static storage",
         "host extension pointers are borrowed and remain host-owned",
     ] {
-        assert!(backend.contains(required), "missing instance lifetime note `{required}`:\n{backend}");
+        assert!(
+            backend.contains(required),
+            "missing instance lifetime note `{required}`:\n{backend}"
+        );
     }
 
     for forbidden in [
