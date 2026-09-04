@@ -7,6 +7,9 @@ pub(crate) fn header() -> String {
 #include <clap/clap.h>\n\
 #include <cstdint>\n\n\
 namespace clapgen::generated {\n\n\
+// Borrowed callback lifetime:\n\
+// clap_process_t and its nested event lists and audio buffers are host-owned.\n\
+// These callback-scoped pointers must not be retained after Processor::process() returns.\n\n\
 template <typename Processor>\n\
 concept NativeProcessor = requires {\n\
     static_cast<bool (Processor::*)()>(&Processor::init);\n\
