@@ -5,10 +5,6 @@ set(
   "${CLAPGEN_ISSUE52_GENERATED_DIR}/clapgen_instance_backend.hpp"
 )
 set(
-  CLAPGEN_ISSUE52_BACKEND_SOURCE
-  "${CLAPGEN_ISSUE52_GENERATED_DIR}/clapgen_instance_backend.cpp"
-)
-set(
   CLAPGEN_ISSUE52_DESCRIPTORS
   "${CLAPGEN_ISSUE52_GENERATED_DIR}/clapgen_descriptors.hpp"
 )
@@ -19,7 +15,6 @@ add_custom_command(
   OUTPUT
     "${CLAPGEN_ISSUE52_ENTRY}"
     "${CLAPGEN_ISSUE52_BACKEND_HEADER}"
-    "${CLAPGEN_ISSUE52_BACKEND_SOURCE}"
     "${CLAPGEN_ISSUE52_DESCRIPTORS}"
     "${CLAPGEN_ISSUE52_EXTENSIONS}"
     "${CLAPGEN_ISSUE52_PROCESSOR}"
@@ -30,9 +25,6 @@ add_custom_command(
   COMMAND
     "${CMAKE_COMMAND}" -E copy_if_different "${CLAPGEN_ISSUE59_BACKEND_HEADER}"
     "${CLAPGEN_ISSUE52_BACKEND_HEADER}"
-  COMMAND
-    "${CMAKE_COMMAND}" -E copy_if_different "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
-    "${CLAPGEN_ISSUE52_BACKEND_SOURCE}"
   COMMAND
     "${CMAKE_COMMAND}" -E copy_if_different
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue52/clapgen_descriptors.hpp"
@@ -53,7 +45,6 @@ add_custom_target(
   DEPENDS
     "${CLAPGEN_ISSUE52_ENTRY}"
     "${CLAPGEN_ISSUE52_BACKEND_HEADER}"
-    "${CLAPGEN_ISSUE52_BACKEND_SOURCE}"
     "${CLAPGEN_ISSUE52_DESCRIPTORS}"
     "${CLAPGEN_ISSUE52_EXTENSIONS}"
     "${CLAPGEN_ISSUE52_PROCESSOR}"
@@ -61,8 +52,8 @@ add_custom_target(
 
 add_executable(
   clapgen_issue52_multi_plugin_bundle_smoke
+  tests/codegen/issue52/bundle_backend.cpp
   tests/codegen/issue52/multi_plugin_bundle_smoke.cpp
-  "${CLAPGEN_ISSUE52_BACKEND_SOURCE}"
 )
 add_dependencies(clapgen_issue52_multi_plugin_bundle_smoke clapgen_issue52_generated)
 target_compile_features(clapgen_issue52_multi_plugin_bundle_smoke PRIVATE cxx_std_20)
