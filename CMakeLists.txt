@@ -45,6 +45,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     set(CLAPGEN_ISSUE59_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/issue59")
     set(CLAPGEN_ISSUE59_ENTRY "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_entry.cpp")
+    set(CLAPGEN_ISSUE59_EXTENSIONS "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_extensions.hpp")
     set(
       CLAPGEN_ISSUE59_BACKEND_HEADER
       "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_instance_backend.hpp"
@@ -67,6 +68,7 @@ if(BUILD_TESTING)
     add_custom_command(
       OUTPUT
         "${CLAPGEN_ISSUE59_ENTRY}"
+        "${CLAPGEN_ISSUE59_EXTENSIONS}"
         "${CLAPGEN_ISSUE59_BACKEND_HEADER}"
         "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
         "${CLAPGEN_ISSUE59_DESCRIPTORS}"
@@ -87,6 +89,7 @@ if(BUILD_TESTING)
       clapgen_issue59_generated
       DEPENDS
         "${CLAPGEN_ISSUE59_ENTRY}"
+        "${CLAPGEN_ISSUE59_EXTENSIONS}"
         "${CLAPGEN_ISSUE59_BACKEND_HEADER}"
         "${CLAPGEN_ISSUE59_BACKEND_SOURCE}"
         "${CLAPGEN_ISSUE59_DESCRIPTORS}"
@@ -253,6 +256,7 @@ if(BUILD_TESTING)
     add_test(NAME clapgen.codegen.issue49.lifecycle_smoke COMMAND clapgen_issue49_lifecycle_smoke)
 
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue50/Issue50.cmake")
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue51/Issue51.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue64/Issue64.cmake")
   endif()
 endif()
