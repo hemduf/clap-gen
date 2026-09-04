@@ -106,6 +106,33 @@ fn issue51_review_requires_null_binding_safety_and_deterministic_owned_binding_o
 }
 
 #[test]
+fn issue51_rejects_duplicate_owned_extension_ids_before_emission() {
+    let first = extension_cpp::OwnedPluginExtension {
+        id: "clap.latency",
+        table_symbol: "first_latency_table",
+    };
+    let duplicate = extension_cpp::OwnedPluginExtension {
+        id: "clap.latency",
+        table_symbol: "second_latency_table",
+    };
+
+    let panic = std::panic::catch_unwind(|| {
+        let _ = extension_cpp::header_for_owned_bindings(&[first, duplicate]);
+    })
+    .expect_err("duplicate owned extension ids must be rejected before emission");
+
+    let message = panic
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| panic.downcast_ref::<&str>().copied())
+        .expect("duplicate rejection should carry an actionable panic message");
+    assert!(
+        message.contains("duplicate owned plugin extension id `clap.latency`"),
+        "unexpected duplicate diagnostic: {message}"
+    );
+}
+
+#[test]
 fn issue51_review_tracks_new_output_and_smoke_in_build_and_ci_contracts() {
     let cmake = include_str!("../../../../CMakeLists.txt");
     for required in [
