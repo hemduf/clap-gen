@@ -1,5 +1,6 @@
 #include <clap/clap.h>
 
+#include <atomic>
 #include <cstdint>
 
 #include "clapgen_instance_backend.hpp"
@@ -9,7 +10,7 @@ namespace detail = clapgen::generated::detail;
 namespace {
 
 struct LifecycleProcessor {
-  ~LifecycleProcessor() { ++destroyed; }
+  ~LifecycleProcessor() { destroyed.fetch_add(1, std::memory_order_relaxed); }
 
   bool init() {
     ++init_calls;
@@ -56,7 +57,7 @@ struct LifecycleProcessor {
   std::uint32_t last_max_frames = 0u;
   const clap_process_t* last_process = nullptr;
 
-  static inline int destroyed = 0;
+  static inline std::atomic<int> destroyed{0};
 };
 
 using Instance = detail::PluginInstance<LifecycleProcessor>;
@@ -251,7 +252,7 @@ int failed_init_is_terminal_and_destructible(const clap_host_t* host) {
 
   LifecycleProcessor& processor = instance->processor();
   processor.init_result = false;
-  const int destroyed_before = LifecycleProcessor::destroyed;
+  const int destroyed_before = LifecycleProcessor::destroyed.load(std::memory_order_relaxed);
   const bool first_init = plugin->init(plugin);
   const bool second_init = plugin->init(plugin);
   if (first_init || second_init || processor.init_calls != 1) {
@@ -259,7 +260,8 @@ int failed_init_is_terminal_and_destructible(const clap_host_t* host) {
   }
 
   plugin->destroy(plugin);
-  if (LifecycleProcessor::destroyed != destroyed_before + 1) {
+  const int destroyed_after = LifecycleProcessor::destroyed.load(std::memory_order_relaxed);
+  if (destroyed_after != destroyed_before + 1) {
     return 37;
   }
   return 0;
