@@ -160,9 +160,9 @@ int invalid_order_is_fail_closed(const clap_host_t* host) {
     return 19;
   }
 
-  if (!plugin->activate(plugin, 44100.0, 8u, 512u) ||
-      plugin->activate(plugin, 44100.0, 8u, 512u) ||
-      processor.activate_calls != 1) {
+  const bool first_activate = plugin->activate(plugin, 44100.0, 8u, 512u);
+  const bool second_activate = plugin->activate(plugin, 44100.0, 8u, 512u);
+  if (!first_activate || second_activate || processor.activate_calls != 1) {
     return 20;
   }
   if (!plugin->start_processing(plugin) || plugin->start_processing(plugin) ||
