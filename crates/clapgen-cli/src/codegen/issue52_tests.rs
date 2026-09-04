@@ -24,9 +24,13 @@ fn issue52_three_plugin_fixture_is_exact_deterministic_descriptor_output() {
         plugin("com.example.fail", "Fail"),
     ])
     .expect("three unique plugin descriptors should render");
-    let fixture = include_str!("../../../../tests/codegen/issue52/clapgen_descriptors.hpp");
+    let fixture = include_str!("../../../../tests/codegen/issue52/clapgen_descriptors.hpp")
+        .replace("\r\n", "\n");
 
-    assert_eq!(rendered, fixture, "the runtime bundle fixture must remain generated-shape exact");
+    assert_eq!(
+        rendered, fixture,
+        "the runtime bundle fixture must remain generated-shape exact"
+    );
 
     let alpha = rendered.find(".id = \"com.example.alpha\"").expect("alpha descriptor");
     let failing = rendered.find(".id = \"com.example.fail\"").expect("failing descriptor");
