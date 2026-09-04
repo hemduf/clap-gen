@@ -61,9 +61,7 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
         "HostWrapper",
         "std::function",
         "std::vector",
-        "std::unique_ptr",
         "std::shared_ptr",
-        "new ",
         "malloc(",
         "calloc(",
     ] {
@@ -74,6 +72,13 @@ fn issue59_private_backend_seam_uses_only_native_clap_types() {
         assert!(
             !source.contains(forbidden),
             "unexpected `{forbidden}` in backend source:\n{source}"
+        );
+    }
+
+    for forbidden in ["std::unique_ptr", "new ", "delete "] {
+        assert!(
+            !source.contains(forbidden),
+            "#59 production fallback must remain allocation-free despite #48 ownership via `{forbidden}`:\n{source}"
         );
     }
 }
