@@ -91,3 +91,23 @@ fn issue51_review_requires_null_binding_safety_and_deterministic_owned_binding_o
         "extension ids must reuse the ABI C-string literal authority:\n{implementation}"
     );
 }
+
+#[test]
+fn issue51_review_tracks_new_output_and_smoke_in_build_and_ci_contracts() {
+    let cmake = include_str!("../../../../CMakeLists.txt");
+    for required in [
+        "CLAPGEN_ISSUE59_EXTENSIONS",
+        "\"${CLAPGEN_ISSUE59_EXTENSIONS}\"",
+        "tests/codegen/issue51/Issue51.cmake",
+    ] {
+        assert!(cmake.contains(required), "CMake is missing `{required}`:\n{cmake}");
+    }
+
+    let ci = include_str!("../../../../.github/workflows/ci.yml");
+    for required in [
+        "tests/codegen/issue51/extension_dispatch_smoke.cpp",
+        "tests/codegen/issue51",
+    ] {
+        assert!(ci.contains(required), "CI is missing `{required}`:\n{ci}");
+    }
+}
