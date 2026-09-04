@@ -19,7 +19,9 @@ fn issue48_generates_private_raii_instance_ownership() {
         ".desc = descriptor,",
         ".plugin_data = this,",
         ".destroy = destroy_plugin,",
-        "delete from_plugin(plugin);",
+        "static void CLAP_ABI destroy_plugin(const clap_plugin_t* plugin)",
+        "auto* instance = from_plugin(plugin);",
+        "delete instance;",
         "Processor processor_{};",
         "const clap_host_t* host_ = nullptr;",
         "clap_plugin_t plugin_{};",
@@ -52,29 +54,19 @@ fn issue48_generates_private_raii_instance_ownership() {
 }
 
 #[test]
-fn issue48_keeps_lifecycle_dispatch_fail_closed_until_issue49() {
+fn issue48_keeps_non_lifecycle_extensions_fail_closed() {
     let header = instance_backend_cpp::header();
 
     for required in [
-        "static bool CLAP_ABI unavailable_init(const clap_plugin_t*)",
-        "static bool CLAP_ABI unavailable_activate(",
-        "static bool CLAP_ABI unavailable_start_processing(const clap_plugin_t*)",
-        "static clap_process_status CLAP_ABI unavailable_process(",
-        "return CLAP_PROCESS_ERROR;",
         "static const void* CLAP_ABI unavailable_get_extension(",
         "return nullptr;",
+        ".get_extension = unavailable_get_extension,",
+        ".on_main_thread = unavailable_on_main_thread,",
     ] {
         assert!(header.contains(required), "missing `{required}`:\n{header}");
     }
 
-    for forbidden in [
-        "processor().init(",
-        "processor().activate(",
-        "processor().process(",
-        "LifecycleState",
-        "active_",
-        "processing_",
-    ] {
-        assert!(!header.contains(forbidden), "#48 pulled #49 via `{forbidden}`:\n{header}");
+    for forbidden in ["ExtensionTable", "HostWrapper", "FactoryContext"] {
+        assert!(!header.contains(forbidden), "#48 boundary regressed via `{forbidden}`:\n{header}");
     }
 }

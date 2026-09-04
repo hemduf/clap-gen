@@ -237,6 +237,21 @@ if(BUILD_TESTING)
       COMMAND clapgen_issue48_instance_ownership_smoke
     )
 
+    add_executable(
+      clapgen_issue49_lifecycle_smoke
+      tests/codegen/issue49/lifecycle_smoke.cpp
+    )
+    add_dependencies(clapgen_issue49_lifecycle_smoke clapgen_issue59_generated)
+    target_compile_features(clapgen_issue49_lifecycle_smoke PRIVATE cxx_std_20)
+    target_include_directories(
+      clapgen_issue49_lifecycle_smoke
+      PRIVATE
+        "${CLAPGEN_ISSUE59_GENERATED_DIR}"
+        "${clap_SOURCE_DIR}/include"
+    )
+    clapgen_enable_warnings(clapgen_issue49_lifecycle_smoke)
+    add_test(NAME clapgen.codegen.issue49.lifecycle_smoke COMMAND clapgen_issue49_lifecycle_smoke)
+
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue64/Issue64.cmake")
   endif()
 endif()

@@ -96,6 +96,7 @@ jobs:
           runtime/src/runtime.cpp
           tests/runtime/runtime_smoke.cpp
           tests/codegen/issue48/instance_ownership_smoke.cpp
+          tests/codegen/issue49/lifecycle_smoke.cpp
           tests/codegen/issue59/abi_contract.cpp
           tests/codegen/issue59/backend_smoke.cpp
           tests/codegen/issue59/backend_spy_smoke.cpp
@@ -111,7 +112,7 @@ jobs:
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -120,7 +121,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: Configure C++
         run: >-
