@@ -226,11 +226,11 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
 
 int main() {
   const auto host = make_host();
-  const int results[] = {
-      constructor_failure_is_clean(&host), setup_failure_cleans_constructed_processor(&host),
-      init_failure_remains_destructible(&host), invalid_index_does_not_construct(&host),
-      multiple_instances_are_isolated(&host),
-  };
+  const int results[] = {constructor_failure_is_clean(&host),
+                         setup_failure_cleans_constructed_processor(&host),
+                         init_failure_remains_destructible(&host),
+                         invalid_index_does_not_construct(&host),
+                         multiple_instances_are_isolated(&host)};
 
   for (const int result : results) {
     if (result != 0) {
