@@ -29,3 +29,6 @@ add_test(
   NAME clapgen.codegen.issue50.abi_exception_smoke
   COMMAND clapgen_issue50_abi_exception_smoke
 )
+
+# #51 depends on #50; keep the focused runtime test harnesses chained in dependency order.
+include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue51/Issue51.cmake")
