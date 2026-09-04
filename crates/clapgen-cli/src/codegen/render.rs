@@ -4,7 +4,8 @@ use crate::ir::CanonicalIr;
 
 use super::{
     GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, descriptor_cpp, entry_cpp, extension_cpp,
-    ids_cpp, instance_backend_cpp, manifest, metadata_cpp, processor_cpp, resources_cpp, source_map,
+    ids_cpp, instance_backend_cpp, manifest, metadata_cpp, processor_cpp, resources_cpp,
+    source_map,
 };
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
