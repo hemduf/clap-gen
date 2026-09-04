@@ -9,6 +9,8 @@ namespace detail = clapgen::generated::detail;
 namespace {
 
 struct LifecycleProcessor {
+  ~LifecycleProcessor() { ++destroyed; }
+
   bool init() {
     ++init_calls;
     return init_result;
@@ -53,6 +55,8 @@ struct LifecycleProcessor {
   std::uint32_t last_min_frames = 0u;
   std::uint32_t last_max_frames = 0u;
   const clap_process_t* last_process = nullptr;
+
+  static inline int destroyed = 0;
 };
 
 using Instance = detail::PluginInstance<LifecycleProcessor>;
@@ -235,6 +239,32 @@ int failure_states_remain_retryable_or_destructible(const clap_host_t* host) {
   return 0;
 }
 
+int failed_init_is_terminal_and_destructible(const clap_host_t* host) {
+  const clap_plugin_t* plugin = detail::create_plugin_instance_for<LifecycleProcessor>(0u, host);
+  if (plugin == nullptr) {
+    return 34;
+  }
+  Instance* instance = Instance::from_plugin(plugin);
+  if (instance == nullptr) {
+    return 35;
+  }
+
+  LifecycleProcessor& processor = instance->processor();
+  processor.init_result = false;
+  const int destroyed_before = LifecycleProcessor::destroyed;
+  const bool first_init = plugin->init(plugin);
+  const bool second_init = plugin->init(plugin);
+  if (first_init || second_init || processor.init_calls != 1) {
+    return 36;
+  }
+
+  plugin->destroy(plugin);
+  if (LifecycleProcessor::destroyed != destroyed_before + 1) {
+    return 37;
+  }
+  return 0;
+}
+
 } // namespace
 
 int main() {
@@ -245,5 +275,8 @@ int main() {
   if (const int result = invalid_order_is_fail_closed(&host); result != 0) {
     return result;
   }
-  return failure_states_remain_retryable_or_destructible(&host);
+  if (const int result = failure_states_remain_retryable_or_destructible(&host); result != 0) {
+    return result;
+  }
+  return failed_init_is_terminal_and_destructible(&host);
 }
