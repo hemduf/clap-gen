@@ -45,9 +45,7 @@ fn issue65_final_entry_factory_conformity_gate() {
         "exactly one generated factory object is allowed:\n{entry}"
     );
     assert_eq!(
-        entry
-            .matches("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{")
-            .count(),
+        entry.matches("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{").count(),
         1,
         "exactly one exported clap_entry definition is allowed:\n{entry}"
     );
