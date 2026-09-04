@@ -161,7 +161,8 @@ int invalid_order_is_fail_closed(const clap_host_t* host) {
   }
 
   if (!plugin->activate(plugin, 44100.0, 8u, 512u) ||
-      plugin->activate(plugin, 44100.0, 8u, 512u) || processor.activate_calls != 1) {
+      plugin->activate(plugin, 44100.0, 8u, 512u) ||
+      processor.activate_calls != 1) {
     return 20;
   }
   if (!plugin->start_processing(plugin) || plugin->start_processing(plugin) ||
