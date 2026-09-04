@@ -21,10 +21,7 @@ pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -
     owned.sort_by(|left, right| left.id.cmp(right.id));
     for duplicate in owned.windows(2) {
         if duplicate[0].id == duplicate[1].id {
-            panic!(
-                "duplicate owned plugin extension id `{}`",
-                duplicate[0].id
-            );
+            panic!("duplicate owned plugin extension id `{}`", duplicate[0].id);
         }
     }
 
