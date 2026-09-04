@@ -27,9 +27,7 @@ inline void reset_counters() {
   failing_init_calls.store(0, std::memory_order_relaxed);
 }
 
-inline int counter(const std::atomic<int>& value) {
-  return value.load(std::memory_order_relaxed);
-}
+inline int counter(const std::atomic<int>& value) { return value.load(std::memory_order_relaxed); }
 
 struct AlphaProcessor {
   AlphaProcessor() { alpha_lifetime.constructed.fetch_add(1, std::memory_order_relaxed); }
@@ -77,9 +75,7 @@ struct ZetaProcessor {
   void stop_processing() {}
   void reset() {}
 
-  clap_process_status process(const clap_process_t*) {
-    return CLAP_PROCESS_CONTINUE_IF_NOT_QUIET;
-  }
+  clap_process_status process(const clap_process_t*) { return CLAP_PROCESS_CONTINUE_IF_NOT_QUIET; }
 };
 
 } // namespace clapgen::issue52
