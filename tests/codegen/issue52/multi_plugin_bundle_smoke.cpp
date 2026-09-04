@@ -63,8 +63,8 @@ int main() {
   if (!clap_entry.init("issue52-multi-plugin-bundle.clap")) {
     return 1;
   }
-  const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID));
+  const auto* factory =
+      static_cast<const clap_plugin_factory_t*>(clap_entry.get_factory(CLAP_PLUGIN_FACTORY_ID));
   if (factory == nullptr) {
     return 2;
   }
@@ -75,8 +75,7 @@ int main() {
       !descriptor_id_is(factory, 2u, "com.example.zeta")) {
     return 3;
   }
-  if (factory->get_plugin_descriptor(factory, 0u) !=
-          factory->get_plugin_descriptor(factory, 0u) ||
+  if (factory->get_plugin_descriptor(factory, 0u) != factory->get_plugin_descriptor(factory, 0u) ||
       factory->get_plugin_descriptor(factory, 3u) != nullptr) {
     return 4;
   }
@@ -133,7 +132,8 @@ int main() {
   }
 
   const clap_plugin_t* zeta_after_failure = factory->create_plugin(factory, &host, zeta_id);
-  if (zeta_after_failure == nullptr || zeta_after_failure->desc != generated::plugin_descriptors[2] ||
+  if (zeta_after_failure == nullptr ||
+      zeta_after_failure->desc != generated::plugin_descriptors[2] ||
       !zeta_after_failure->init(zeta_after_failure)) {
     return 14;
   }
