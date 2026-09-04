@@ -1,7 +1,6 @@
 #include <clap/clap.h>
 
 #include <cstdint>
-#include <initializer_list>
 #include <limits>
 #include <stdexcept>
 
@@ -123,16 +122,16 @@ int setup_failure_cleans_constructed_processor(const clap_host_t* host) {
 int init_failure_remains_destructible(const clap_host_t* host) {
   InstrumentedProcessor::reset_counters();
 
-  const clap_plugin_t* plugin =
-      detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
+  const clap_plugin_t* plugin = detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
   if (plugin == nullptr || plugin->desc != generated::plugin_descriptors[0] ||
       plugin->plugin_data == nullptr) {
     return 4;
   }
   if (plugin->init == nullptr || plugin->destroy == nullptr || plugin->activate == nullptr ||
       plugin->deactivate == nullptr || plugin->start_processing == nullptr ||
-      plugin->stop_processing == nullptr || plugin->reset == nullptr || plugin->process == nullptr ||
-      plugin->get_extension == nullptr || plugin->on_main_thread == nullptr) {
+      plugin->stop_processing == nullptr || plugin->reset == nullptr ||
+      plugin->process == nullptr || plugin->get_extension == nullptr ||
+      plugin->on_main_thread == nullptr) {
     return 5;
   }
 
@@ -227,12 +226,15 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
 
 int main() {
   const auto host = make_host();
+  const int results[] = {
+      constructor_failure_is_clean(&host),
+      setup_failure_cleans_constructed_processor(&host),
+      init_failure_remains_destructible(&host),
+      invalid_index_does_not_construct(&host),
+      multiple_instances_are_isolated(&host),
+  };
 
-  for (const int result : {constructor_failure_is_clean(&host),
-                           setup_failure_cleans_constructed_processor(&host),
-                           init_failure_remains_destructible(&host),
-                           invalid_index_does_not_construct(&host),
-                           multiple_instances_are_isolated(&host)}) {
+  for (const int result : results) {
     if (result != 0) {
       return result;
     }
