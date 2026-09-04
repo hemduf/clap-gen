@@ -76,7 +76,7 @@ int legal_sequence(const clap_host_t* host) {
   if (instance == nullptr) {
     return 2;
   }
-  LifecycleProcessor& processor = instance->processor();
+  const LifecycleProcessor& processor = instance->processor();
 
   if (!plugin->init(plugin) || processor.init_calls != 1) {
     return 3;
@@ -134,7 +134,7 @@ int invalid_order_is_fail_closed(const clap_host_t* host) {
   if (instance == nullptr) {
     return 14;
   }
-  LifecycleProcessor& processor = instance->processor();
+  const LifecycleProcessor& processor = instance->processor();
   clap_process_t process{};
 
   if (plugin->activate(plugin, 48000.0, 32u, 1024u) || plugin->start_processing(plugin) ||
@@ -149,7 +149,9 @@ int invalid_order_is_fail_closed(const clap_host_t* host) {
     return 16;
   }
 
-  if (!plugin->init(plugin) || plugin->init(plugin) || processor.init_calls != 1) {
+  const bool first_init = plugin->init(plugin);
+  const bool second_init = plugin->init(plugin);
+  if (!first_init || second_init || processor.init_calls != 1) {
     return 17;
   }
   if (plugin->start_processing(plugin) || plugin->process(plugin, &process) != CLAP_PROCESS_ERROR) {
@@ -165,8 +167,9 @@ int invalid_order_is_fail_closed(const clap_host_t* host) {
   if (!first_activate || second_activate || processor.activate_calls != 1) {
     return 20;
   }
-  if (!plugin->start_processing(plugin) || plugin->start_processing(plugin) ||
-      processor.start_calls != 1) {
+  const bool first_start = plugin->start_processing(plugin);
+  const bool second_start = plugin->start_processing(plugin);
+  if (!first_start || second_start || processor.start_calls != 1) {
     return 21;
   }
   plugin->deactivate(plugin);
