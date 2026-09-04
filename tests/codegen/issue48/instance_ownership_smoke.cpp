@@ -222,20 +222,33 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
   return 0;
 }
 
+int first_failure(const clap_host_t* host) {
+  int result = constructor_failure_is_clean(host);
+  if (result != 0) {
+    return result;
+  }
+  result = setup_failure_cleans_constructed_processor(host);
+  if (result != 0) {
+    return result;
+  }
+  result = init_failure_remains_destructible(host);
+  if (result != 0) {
+    return result;
+  }
+  result = invalid_index_does_not_construct(host);
+  if (result != 0) {
+    return result;
+  }
+  return multiple_instances_are_isolated(host);
+}
+
 } // namespace
 
 int main() {
   const auto host = make_host();
-  const int results[] = {constructor_failure_is_clean(&host),
-                         setup_failure_cleans_constructed_processor(&host),
-                         init_failure_remains_destructible(&host),
-                         invalid_index_does_not_construct(&host),
-                         multiple_instances_are_isolated(&host)};
-
-  for (const int result : results) {
-    if (result != 0) {
-      return result;
-    }
+  const int result = first_failure(&host);
+  if (result != 0) {
+    return result;
   }
 
   if (Instance::from_plugin(nullptr) != nullptr) {
