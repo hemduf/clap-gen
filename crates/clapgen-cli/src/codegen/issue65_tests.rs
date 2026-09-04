@@ -1,7 +1,7 @@
 use super::{OUTPUT_NAMES, entry_cpp, instance_backend_cpp};
 
 #[test]
-fn issue65_final_entry_factory_conformity_gate() {
+fn issue65_final_entry_factory_abi_and_routing_conformity() {
     for required in [
         "clapgen_descriptors.hpp",
         "clapgen_entry.cpp",
@@ -12,9 +12,6 @@ fn issue65_final_entry_factory_conformity_gate() {
     }
 
     let entry = entry_cpp::source();
-    let backend_header = instance_backend_cpp::header();
-    let backend_source = instance_backend_cpp::source();
-
     for required in [
         "constinit std::uint32_t entry_init_depth = 0u;",
         "bool CLAP_ABI entry_init(const char*);",
@@ -60,6 +57,13 @@ fn issue65_final_entry_factory_conformity_gate() {
         export > namespace_end,
         "clap_entry must be global and outside detail namespace:\n{entry}"
     );
+}
+
+#[test]
+fn issue65_final_discovery_safety_and_backend_boundary_conformity() {
+    let entry = entry_cpp::source();
+    let backend_header = instance_backend_cpp::header();
+    let backend_source = instance_backend_cpp::source();
 
     for required in [
         "#include <clap/clap.h>",
