@@ -24,7 +24,9 @@ pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -
     let binding_pointer = if owned.is_empty() {
         "nullptr"
     } else {
-        storage.push_str("inline constinit const PluginExtensionBinding plugin_extension_bindings[] = {\n");
+        storage.push_str(
+            "inline constinit const PluginExtensionBinding plugin_extension_bindings[] = {\n",
+        );
         for binding in &owned {
             let id = cpp_literal::utf8_c_string(binding.id);
             writeln!(&mut storage, "    {{{id}, &{}}},", binding.table_symbol)
