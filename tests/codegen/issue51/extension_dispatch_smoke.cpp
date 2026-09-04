@@ -53,8 +53,11 @@ int lookup_native_tables_by_string_content() {
   if (detail::lookup_plugin_extension(test_bindings, 2u, nullptr) != nullptr) {
     return 1;
   }
-  if (detail::lookup_plugin_extension(test_bindings, 2u, "com.example.unknown") != nullptr) {
+  if (detail::lookup_plugin_extension(nullptr, 1u, CLAP_EXT_LATENCY) != nullptr) {
     return 2;
+  }
+  if (detail::lookup_plugin_extension(test_bindings, 2u, "com.example.unknown") != nullptr) {
+    return 3;
   }
 
   char copied_latency[] = CLAP_EXT_LATENCY;
@@ -62,10 +65,10 @@ int lookup_native_tables_by_string_content() {
   const void* latency = detail::lookup_plugin_extension(test_bindings, 2u, copied_latency);
   const void* tail = detail::lookup_plugin_extension(test_bindings, 2u, copied_tail);
   if (latency != &latency_table || tail != &tail_table) {
-    return 3;
+    return 4;
   }
   if (detail::lookup_plugin_extension(test_bindings, 2u, copied_latency) != latency) {
-    return 4;
+    return 5;
   }
   return 0;
 }
@@ -74,7 +77,7 @@ int production_plugin_exposes_no_unowned_extension() {
   const auto host = make_host();
   const clap_plugin_t* plugin = detail::create_plugin_instance_for<Processor>(0u, &host);
   if (plugin == nullptr || plugin->get_extension == nullptr) {
-    return 5;
+    return 6;
   }
 
   char copied_latency[] = CLAP_EXT_LATENCY;
@@ -83,7 +86,7 @@ int production_plugin_exposes_no_unowned_extension() {
       plugin->get_extension(plugin, copied_tail) != nullptr ||
       plugin->get_extension(plugin, nullptr) != nullptr) {
     plugin->destroy(plugin);
-    return 6;
+    return 7;
   }
 
   plugin->destroy(plugin);
