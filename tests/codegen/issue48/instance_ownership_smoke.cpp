@@ -31,26 +31,40 @@ struct InstrumentedProcessor {
   ~InstrumentedProcessor() { destroyed.fetch_add(1, std::memory_order_relaxed); }
 
   bool init() {
+    ++mutable_value;
     hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
   bool activate(double, std::uint32_t, std::uint32_t) {
+    ++mutable_value;
     hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
-  void deactivate() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
+  void deactivate() {
+    ++mutable_value;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
+  }
 
   bool start_processing() {
+    ++mutable_value;
     hook_calls.fetch_add(1, std::memory_order_relaxed);
     return true;
   }
 
-  void stop_processing() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
-  void reset() { hook_calls.fetch_add(1, std::memory_order_relaxed); }
+  void stop_processing() {
+    ++mutable_value;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void reset() {
+    ++mutable_value;
+    hook_calls.fetch_add(1, std::memory_order_relaxed);
+  }
 
   clap_process_status process(const clap_process_t*) {
+    ++mutable_value;
     hook_calls.fetch_add(1, std::memory_order_relaxed);
     return CLAP_PROCESS_CONTINUE;
   }
@@ -162,7 +176,7 @@ int init_failure_remains_destructible(const clap_host_t* host) {
     return 11;
   }
   plugin->on_main_thread(plugin);
-  if (counter(InstrumentedProcessor::hook_calls) != 0) {
+  if (counter(InstrumentedProcessor::hook_calls) != 0 || instance->processor().mutable_value != 0) {
     return 12;
   }
 
