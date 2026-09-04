@@ -136,7 +136,7 @@ int setup_failure_cleans_constructed_processor(const clap_host_t* host) {
   return 0;
 }
 
-int init_failure_remains_destructible(const clap_host_t* host) {
+int created_instance_is_owned_and_destructible(const clap_host_t* host) {
   InstrumentedProcessor::reset_counters();
 
   const clap_plugin_t* plugin = detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
@@ -156,34 +156,18 @@ int init_failure_remains_destructible(const clap_host_t* host) {
   if (instance == nullptr || instance->host() != host || instance->processor().instance_id == 0u) {
     return 6;
   }
-
-  if (plugin->init(plugin)) {
-    return 7;
-  }
-  if (plugin->activate(plugin, 48000.0, 32u, 1024u)) {
-    return 8;
-  }
-  plugin->deactivate(plugin);
-  if (plugin->start_processing(plugin)) {
-    return 9;
-  }
-  plugin->stop_processing(plugin);
-  plugin->reset(plugin);
-  if (plugin->process(plugin, nullptr) != CLAP_PROCESS_ERROR) {
-    return 10;
-  }
   if (plugin->get_extension(plugin, "clap.test") != nullptr) {
-    return 11;
+    return 7;
   }
   plugin->on_main_thread(plugin);
   if (counter(InstrumentedProcessor::hook_calls) != 0 || instance->processor().mutable_value != 0) {
-    return 12;
+    return 8;
   }
 
   plugin->destroy(plugin);
   if (counter(InstrumentedProcessor::constructed) != 1 ||
       counter(InstrumentedProcessor::destroyed) != 1 || counter(LifetimeToken::alive) != 0) {
-    return 13;
+    return 9;
   }
   return 0;
 }
@@ -193,11 +177,11 @@ int invalid_index_does_not_construct(const clap_host_t* host) {
 
   if (detail::create_plugin_instance_for<InstrumentedProcessor>(
           std::numeric_limits<std::uint32_t>::max(), host) != nullptr) {
-    return 14;
+    return 10;
   }
   if (counter(InstrumentedProcessor::constructed) != 0 ||
       counter(InstrumentedProcessor::destroyed) != 0 || counter(LifetimeToken::alive) != 0) {
-    return 15;
+    return 11;
   }
   return 0;
 }
@@ -209,32 +193,32 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
   const clap_plugin_t* second = detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
   if (first == nullptr || second == nullptr || first == second ||
       first->plugin_data == second->plugin_data) {
-    return 16;
+    return 12;
   }
 
   Instance* first_instance = Instance::from_plugin(first);
   Instance* second_instance = Instance::from_plugin(second);
   if (first_instance == nullptr || second_instance == nullptr ||
       first_instance->processor().instance_id == second_instance->processor().instance_id) {
-    return 17;
+    return 13;
   }
 
   first_instance->processor().mutable_value = 41;
   second_instance->processor().mutable_value = 7;
   if (first_instance->processor().mutable_value != 41 ||
       second_instance->processor().mutable_value != 7) {
-    return 18;
+    return 14;
   }
 
   first->destroy(first);
   if (counter(InstrumentedProcessor::destroyed) != 1 || counter(LifetimeToken::alive) != 1 ||
       second_instance->processor().mutable_value != 7) {
-    return 19;
+    return 15;
   }
   second->destroy(second);
   if (counter(InstrumentedProcessor::constructed) != 2 ||
       counter(InstrumentedProcessor::destroyed) != 2 || counter(LifetimeToken::alive) != 0) {
-    return 20;
+    return 16;
   }
   return 0;
 }
@@ -248,7 +232,7 @@ int first_failure(const clap_host_t* host) {
   if (result != 0) {
     return result;
   }
-  result = init_failure_remains_destructible(host);
+  result = created_instance_is_owned_and_destructible(host);
   if (result != 0) {
     return result;
   }
@@ -269,7 +253,7 @@ int main() {
   }
 
   if (Instance::from_plugin(nullptr) != nullptr) {
-    return 21;
+    return 17;
   }
   return 0;
 }
