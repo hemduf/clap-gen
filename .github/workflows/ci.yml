@@ -4,17 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  CARGO_TERM_COLOR: always
 
 jobs:
   policy:
@@ -25,22 +21,32 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run CI policy tests
-        run: python3 -m unittest discover -s tests/ci -p 'test_*.py'
+        run: python3 -m unittest -v tests/bootstrap/test_ci_policy.py
 
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="1.7.8"
+          archive="actionlint_${version}_linux_x86_64.tar.gz"
+          url="https://github.com/rhysd/actionlint/releases/download/v${version}/${archive}"
+          curl --fail --location --silent --show-error "${url}" --output "${archive}"
+          echo "08a98bc7a54ff1bfccb3eb09c4bed2497150613f349567800facb82c8d6f14a9  ${archive}" | sha256sum --check --strict
+          tar -xzf "${archive}" actionlint
+          echo "${PWD}" >> "${GITHUB_PATH}"
 
       - name: Lint workflows
-        shell: bash
-        run: '"$(go env GOPATH)/bin/actionlint"'
+        run: actionlint
 
   rust:
     name: Rust (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,12 +73,12 @@ jobs:
 
   cpp:
     name: C++ (${{ matrix.os }}, ${{ matrix.build_type }})
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         build_type: [Debug, Release]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,6 +93,7 @@ jobs:
 
       - name: Install C++ analysis tools (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: choco install llvm cppcheck --no-progress -y
 
       - name: C++ format
@@ -96,6 +103,7 @@ jobs:
           runtime/src/runtime.cpp
           tests/runtime/runtime_smoke.cpp
           tests/codegen/issue48/instance_ownership_smoke.cpp
+          tests/codegen/issue49/lifecycle_smoke.cpp
           tests/codegen/issue59/abi_contract.cpp
           tests/codegen/issue59/backend_smoke.cpp
           tests/codegen/issue59/backend_spy_smoke.cpp
@@ -111,7 +119,7 @@ jobs:
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -120,7 +128,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: Configure C++
         run: >-
@@ -139,68 +147,46 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-${{ runner.os }}-${{ matrix.build_type }}
+          name: ctest-${{ matrix.os }}-${{ matrix.build_type }}
           path: build/cpp/Testing/Temporary/LastTest.log
-          if-no-files-found: ignore
-          retention-days: 7
 
   sanitizers:
     name: Sanitizers (${{ matrix.os }})
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure ASan and UBSan
+      - name: Configure with ASan + UBSan
         run: >-
-          cmake -S . -B build/sanitizers
+          cmake -S . -B build/sanitize
           -DBUILD_TESTING=ON
           -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
-          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer'
+          -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
+          -DCMAKE_SHARED_LINKER_FLAGS='-fsanitize=address,undefined'
 
-      - name: Build ASan and UBSan
-        run: cmake --build build/sanitizers --config Debug
+      - name: Build sanitizer configuration
+        run: cmake --build build/sanitize --config Debug
 
-      - name: Test ASan and UBSan
-        env:
-          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
-        run: ctest --test-dir build/sanitizers -C Debug --output-on-failure
-
-      - name: Upload sanitizer CTest log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sanitizers-${{ runner.os }}
-          path: build/sanitizers/Testing/Temporary/LastTest.log
-          if-no-files-found: ignore
-          retention-days: 7
+      - name: Run sanitizer tests
+        run: ctest --test-dir build/sanitize -C Debug --output-on-failure
 
   required:
     name: Required CI gate
     if: always()
-    needs: [policy, rust, cpp, sanitizers]
+    needs: [policy, rust, cpp]
     runs-on: ubuntu-latest
     steps:
       - name: Require every CI component to pass
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          POLICY_RESULT: ${{ needs.policy.result }}
-          RUST_RESULT: ${{ needs.rust.result }}
-          CPP_RESULT: ${{ needs.cpp.result }}
-          SANITIZERS_RESULT: ${{ needs.sanitizers.result }}
         shell: bash
         run: |
-          test "$POLICY_RESULT" = success
-          test "$RUST_RESULT" = success
-          test "$CPP_RESULT" = success
-          if [ "$EVENT_NAME" = push ]; then
-            test "$SANITIZERS_RESULT" = success
-          else
-            test "$SANITIZERS_RESULT" = skipped
-          fi
+          set -euo pipefail
+          [[ '${{ needs.policy.result }}' == 'success' ]]
+          [[ '${{ needs.rust.result }}' == 'success' ]]
+          [[ '${{ needs.cpp.result }}' == 'success' ]]
