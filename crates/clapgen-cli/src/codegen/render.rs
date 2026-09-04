@@ -3,8 +3,9 @@ use std::path::Path;
 use crate::ir::CanonicalIr;
 
 use super::{
-    GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, descriptor_cpp, entry_cpp, ids_cpp,
-    instance_backend_cpp, manifest, metadata_cpp, processor_cpp, resources_cpp, source_map,
+    GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, descriptor_cpp, entry_cpp, extension_cpp,
+    ids_cpp, instance_backend_cpp, manifest, metadata_cpp, processor_cpp, resources_cpp,
+    source_map,
 };
 
 pub(crate) fn render(ir: &CanonicalIr) -> GenerationPlan {
@@ -24,6 +25,7 @@ pub(crate) fn render_for_output(
 fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
     let descriptor_header = descriptor_cpp::header(ir).into_bytes();
     let entry_source = entry_cpp::source().into_bytes();
+    let extension_header = extension_cpp::header(ir).into_bytes();
     let ids_header = ids_cpp::header(ir).into_bytes();
     let instance_backend_header = instance_backend_cpp::header().into_bytes();
     let instance_backend_source = instance_backend_cpp::source().into_bytes();
@@ -44,6 +46,7 @@ fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
                 "clapgen.sources.kdl" => sources.clone(),
                 "clapgen_descriptors.hpp" => descriptor_header.clone(),
                 "clapgen_entry.cpp" => entry_source.clone(),
+                "clapgen_extensions.hpp" => extension_header.clone(),
                 "clapgen_ids.hpp" => ids_header.clone(),
                 "clapgen_instance_backend.cpp" => instance_backend_source.clone(),
                 "clapgen_instance_backend.hpp" => instance_backend_header.clone(),

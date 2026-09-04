@@ -54,19 +54,18 @@ fn issue48_generates_private_raii_instance_ownership() {
 }
 
 #[test]
-fn issue48_keeps_non_lifecycle_extensions_fail_closed() {
+fn issue48_keeps_non_lifecycle_main_thread_callback_fail_closed() {
     let header = instance_backend_cpp::header();
 
     for required in [
-        "static const void* CLAP_ABI unavailable_get_extension(",
-        "return nullptr;",
-        ".get_extension = unavailable_get_extension,",
+        ".get_extension = get_extension_plugin,",
         ".on_main_thread = unavailable_on_main_thread,",
+        "static void CLAP_ABI unavailable_on_main_thread(const clap_plugin_t*)",
     ] {
         assert!(header.contains(required), "missing `{required}`:\n{header}");
     }
 
-    for forbidden in ["ExtensionTable", "HostWrapper", "FactoryContext"] {
+    for forbidden in ["HostWrapper", "FactoryContext"] {
         assert!(!header.contains(forbidden), "#48 boundary regressed via `{forbidden}`:\n{header}");
     }
 }

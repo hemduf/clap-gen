@@ -4,6 +4,7 @@ generation-manifest version=1 {
     output "clapgen.sources.kdl"
     output "clapgen_descriptors.hpp"
     output "clapgen_entry.cpp"
+    output "clapgen_extensions.hpp"
     output "clapgen_ids.hpp"
     output "clapgen_instance_backend.cpp"
     output "clapgen_instance_backend.hpp"
