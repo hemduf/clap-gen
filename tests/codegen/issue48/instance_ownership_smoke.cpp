@@ -1,6 +1,7 @@
 #include <clap/clap.h>
 
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 #include <stdexcept>
 
@@ -136,7 +137,7 @@ int init_failure_remains_destructible(const clap_host_t* host) {
   }
 
   Instance* instance = Instance::from_plugin(plugin);
-  if (instance == nullptr || instance->host() != host || &instance->processor() == nullptr) {
+  if (instance == nullptr || instance->host() != host || instance->processor().instance_id == 0u) {
     return 6;
   }
 
@@ -190,7 +191,8 @@ int multiple_instances_are_isolated(const clap_host_t* host) {
 
   const clap_plugin_t* first = detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
   const clap_plugin_t* second = detail::create_plugin_instance_for<InstrumentedProcessor>(0u, host);
-  if (first == nullptr || second == nullptr || first == second || first->plugin_data == second->plugin_data) {
+  if (first == nullptr || second == nullptr || first == second ||
+      first->plugin_data == second->plugin_data) {
     return 16;
   }
 
