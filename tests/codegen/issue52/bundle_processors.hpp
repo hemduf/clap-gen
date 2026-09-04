@@ -33,16 +33,31 @@ struct AlphaProcessor {
   AlphaProcessor() { alpha_lifetime.constructed.fetch_add(1, std::memory_order_relaxed); }
   ~AlphaProcessor() { alpha_lifetime.destroyed.fetch_add(1, std::memory_order_relaxed); }
 
-  bool init() { return true; }
-  bool activate(double, std::uint32_t, std::uint32_t) { return true; }
-  void deactivate() {}
-  bool start_processing() { return true; }
-  void stop_processing() {}
-  void reset() { ++generation_; }
+  bool init() {
+    ++mutable_value;
+    return true;
+  }
+  bool activate(double, std::uint32_t, std::uint32_t) {
+    ++mutable_value;
+    return true;
+  }
+  void deactivate() { ++mutable_value; }
+  bool start_processing() {
+    ++mutable_value;
+    return true;
+  }
+  void stop_processing() { ++mutable_value; }
+  void reset() {
+    ++mutable_value;
+    ++generation_;
+  }
 
   clap_process_status process(const clap_process_t*) {
+    ++mutable_value;
     return generation_ == 0 ? CLAP_PROCESS_CONTINUE : CLAP_PROCESS_SLEEP;
   }
+
+  std::uint32_t mutable_value = 0u;
 
 private:
   int generation_ = 0;
@@ -53,29 +68,54 @@ struct FailingProcessor {
   ~FailingProcessor() { failing_lifetime.destroyed.fetch_add(1, std::memory_order_relaxed); }
 
   bool init() {
+    ++mutable_value;
     failing_init_calls.fetch_add(1, std::memory_order_relaxed);
     return false;
   }
-  bool activate(double, std::uint32_t, std::uint32_t) { return true; }
-  void deactivate() {}
-  bool start_processing() { return true; }
-  void stop_processing() {}
-  void reset() {}
-  clap_process_status process(const clap_process_t*) { return CLAP_PROCESS_ERROR; }
+  bool activate(double, std::uint32_t, std::uint32_t) {
+    ++mutable_value;
+    return true;
+  }
+  void deactivate() { ++mutable_value; }
+  bool start_processing() {
+    ++mutable_value;
+    return true;
+  }
+  void stop_processing() { ++mutable_value; }
+  void reset() { ++mutable_value; }
+  clap_process_status process(const clap_process_t*) {
+    ++mutable_value;
+    return CLAP_PROCESS_ERROR;
+  }
+
+  std::uint32_t mutable_value = 0u;
 };
 
 struct ZetaProcessor {
   ZetaProcessor() { zeta_lifetime.constructed.fetch_add(1, std::memory_order_relaxed); }
   ~ZetaProcessor() { zeta_lifetime.destroyed.fetch_add(1, std::memory_order_relaxed); }
 
-  bool init() { return true; }
-  bool activate(double, std::uint32_t, std::uint32_t) { return true; }
-  void deactivate() {}
-  bool start_processing() { return true; }
-  void stop_processing() {}
-  void reset() {}
+  bool init() {
+    ++mutable_value;
+    return true;
+  }
+  bool activate(double, std::uint32_t, std::uint32_t) {
+    ++mutable_value;
+    return true;
+  }
+  void deactivate() { ++mutable_value; }
+  bool start_processing() {
+    ++mutable_value;
+    return true;
+  }
+  void stop_processing() { ++mutable_value; }
+  void reset() { ++mutable_value; }
+  clap_process_status process(const clap_process_t*) {
+    ++mutable_value;
+    return CLAP_PROCESS_CONTINUE_IF_NOT_QUIET;
+  }
 
-  clap_process_status process(const clap_process_t*) { return CLAP_PROCESS_CONTINUE_IF_NOT_QUIET; }
+  std::uint32_t mutable_value = 0u;
 };
 
 } // namespace clapgen::issue52
