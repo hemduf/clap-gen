@@ -5,6 +5,7 @@ mod dependency;
 mod depfile;
 mod descriptor_cpp;
 mod entry_cpp;
+mod extension_cpp;
 mod ids_cpp;
 mod instance_backend_cpp;
 mod manifest;
