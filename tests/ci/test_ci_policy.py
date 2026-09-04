@@ -116,6 +116,14 @@ class CiPolicyTest(unittest.TestCase):
         self.assertNotIn("actions/checkout", workflow)
         self.assertNotIn("secrets.", workflow)
 
+    def test_generated_processor_header_is_a_declared_codegen_output(self) -> None:
+        cmake = read("CMakeLists.txt")
+        self.assertIn(
+            'set(CLAPGEN_ISSUE59_PROCESSOR "${CLAPGEN_ISSUE59_GENERATED_DIR}/clapgen_processor.hpp")',
+            cmake,
+        )
+        self.assertGreaterEqual(cmake.count('"${CLAPGEN_ISSUE59_PROCESSOR}"'), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

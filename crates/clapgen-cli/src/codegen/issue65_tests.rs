@@ -97,11 +97,9 @@ fn issue65_final_discovery_safety_and_backend_boundary_conformity() {
         "std::vector",
         "std::map",
         "std::unordered_map",
-        "std::unique_ptr",
         "std::shared_ptr",
         "std::filesystem",
         "std::fstream",
-        "new ",
         "malloc(",
         "calloc(",
         "realloc(",
@@ -112,10 +110,6 @@ fn issue65_final_discovery_safety_and_backend_boundary_conformity() {
         "host->request_restart",
         "host->request_process",
         "host->request_callback",
-        ".destroy =",
-        ".activate =",
-        ".start_processing =",
-        ".process =",
     ] {
         assert!(!entry.contains(forbidden), "unexpected `{forbidden}` in entry:\n{entry}");
         assert!(
@@ -125,6 +119,22 @@ fn issue65_final_discovery_safety_and_backend_boundary_conformity() {
         assert!(
             !backend_source.contains(forbidden),
             "unexpected `{forbidden}` in backend source:\n{backend_source}"
+        );
+    }
+
+    for forbidden in [
+        "std::unique_ptr",
+        "new ",
+        "delete ",
+        ".destroy =",
+        ".activate =",
+        ".start_processing =",
+        ".process =",
+    ] {
+        assert!(!entry.contains(forbidden), "discovery entry gained `{forbidden}`:\n{entry}");
+        assert!(
+            !backend_source.contains(forbidden),
+            "fallback backend gained #48 ownership behavior via `{forbidden}`:\n{backend_source}"
         );
     }
 }
