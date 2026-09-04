@@ -53,10 +53,8 @@ fn issue51_adds_a_static_extension_surface_and_wires_plugin_dispatch() {
 
 #[test]
 fn issue51_declared_but_unowned_extensions_are_not_emitted_or_exposed() {
-    let source = SOURCE.replace(
-        "extensions {}",
-        "extensions { enable \"clap.latency\"; enable \"clap.tail\" }",
-    );
+    let source = SOURCE
+        .replace("extensions {}", "extensions { enable \"clap.latency\"; enable \"clap.tail\" }");
     let plan = render_source(&source);
     let extensions = generated_text(&plan, "clapgen_extensions.hpp");
 
