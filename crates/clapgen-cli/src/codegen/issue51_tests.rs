@@ -73,3 +73,21 @@ fn issue51_declared_but_unowned_extensions_are_not_emitted_or_exposed() {
     }
     assert!(extensions.contains("plugin_extension_count = 0u"), "{extensions}");
 }
+
+#[test]
+fn issue51_review_requires_null_binding_safety_and_deterministic_owned_binding_order() {
+    let implementation = include_str!("extension_cpp.rs");
+
+    assert!(
+        implementation.contains("if (bindings == nullptr || extension_id == nullptr)"),
+        "lookup must reject a null binding table even when count is non-zero:\n{implementation}"
+    );
+    assert!(
+        implementation.contains("owned.sort_by(|left, right| left.id.cmp(right.id));"),
+        "future owned bindings must be sorted by extension id before emission:\n{implementation}"
+    );
+    assert!(
+        implementation.contains("cpp_literal::utf8_c_string(binding.id)"),
+        "extension ids must reuse the ABI C-string literal authority:\n{implementation}"
+    );
+}
