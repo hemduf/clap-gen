@@ -37,8 +37,8 @@ struct ValidatorProcessor {
 
   void reset() { ++reset_count_; }
 
-  clap_process_status process(const clap_process_t* process) {
-    if (!processing_ || process == nullptr) {
+  clap_process_status process(const clap_process_t* process_data) {
+    if (!processing_ || process_data == nullptr) {
       return CLAP_PROCESS_ERROR;
     }
     ++process_count_;
