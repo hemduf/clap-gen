@@ -7,6 +7,7 @@ foreach(_clapgen_issue9_mode IN ITEMS consumer incremental cross)
       "${CMAKE_COMMAND}"
       "-DCLAPGEN_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
       "-DCLAPGEN_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+      "-DCLAPGEN_CONFIG=$<CONFIG>"
       "-DMODE=${_clapgen_issue9_mode}"
       -P "${_clapgen_issue9_verify}"
   )
