@@ -13,9 +13,10 @@ namespace issue52 = clapgen::issue52;
 namespace {
 
 std::uint32_t host_callback_calls = 0u;
+std::uint32_t host_extension_queries = 0u;
 
 const void* CLAP_ABI host_get_extension(const clap_host_t*, const char*) {
-  ++host_callback_calls;
+  ++host_extension_queries;
   return nullptr;
 }
 
@@ -59,6 +60,7 @@ void stop_deactivate_destroy(const clap_plugin_t* plugin) {
 int main() {
   issue52::reset_counters();
   host_callback_calls = 0u;
+  host_extension_queries = 0u;
 
   if (!clap_entry.init("issue52-multi-plugin-bundle.clap")) {
     return 1;
@@ -180,6 +182,15 @@ int main() {
   if (host_callback_calls != 0u) {
     return 20;
   }
+#ifndef NDEBUG
+  if (host_extension_queries != 5u) {
+    return 21;
+  }
+#else
+  if (host_extension_queries != 0u) {
+    return 21;
+  }
+#endif
 
   clap_entry.deinit();
   return 0;
