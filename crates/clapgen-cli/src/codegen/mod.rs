@@ -40,15 +40,6 @@ pub(crate) fn render_for_output(
     render::render_for_output(ir, dependency_base, output_directory)
 }
 
-pub(crate) fn render_for_output_with_depfile_base(
-    ir: &crate::ir::CanonicalIr,
-    dependency_base: &Path,
-    output_directory: &Path,
-    depfile_base: &Path,
-) -> GenerationPlan {
-    render::render_for_output_with_depfile_base(ir, dependency_base, output_directory, depfile_base)
-}
-
 pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), String> {
     writer::write(plan, directory)
 }
