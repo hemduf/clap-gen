@@ -40,6 +40,14 @@ pub(crate) fn render_for_output(
     render::render_for_output(ir, dependency_base, output_directory)
 }
 
+pub(crate) fn render_for_output_checked(
+    ir: &crate::ir::CanonicalIr,
+    dependency_base: &Path,
+    output_directory: &Path,
+) -> Result<GenerationPlan, String> {
+    render::render_for_output_checked(ir, dependency_base, output_directory)
+}
+
 pub(crate) fn write(plan: &GenerationPlan, directory: &Path) -> Result<(), String> {
     writer::write(plan, directory)
 }
