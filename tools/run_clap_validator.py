@@ -11,6 +11,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import urllib.request
 import zipfile
@@ -59,6 +60,19 @@ def find_validator(root: Path) -> Path:
     return path
 
 
+def unpack_nested_archives(root: Path) -> None:
+    """Unpack the tarball wrapped by GitHub's release ZIP on Unix platforms."""
+    for archive in sorted(root.rglob("*.tar.gz")):
+        with tarfile.open(archive, mode="r:gz") as packed:
+            for member in packed.getmembers():
+                destination = (root / member.name).resolve()
+                try:
+                    destination.relative_to(root.resolve())
+                except ValueError as error:
+                    raise SystemExit(f"unsafe path in validator archive: {member.name}") from error
+            packed.extractall(root)
+
+
 def downloaded_validator(cache: Path) -> Path:
     system = platform.system()
     if system not in ASSETS:
@@ -81,8 +95,10 @@ def downloaded_validator(cache: Path) -> Path:
             )
         with zipfile.ZipFile(archive) as zipped:
             zipped.extractall(root)
+        unpack_nested_archives(root)
+    validator = find_validator(root)
     marker.write_text(expected_digest + "\n", encoding="utf-8")
-    return find_validator(root)
+    return validator
 
 
 def main() -> int:
