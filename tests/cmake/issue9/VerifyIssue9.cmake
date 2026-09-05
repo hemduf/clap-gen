@@ -2,10 +2,10 @@ if(NOT DEFINED CLAPGEN_SOURCE_DIR OR NOT DEFINED CLAPGEN_BINARY_DIR OR NOT DEFIN
   message(FATAL_ERROR "CLAPGEN_SOURCE_DIR, CLAPGEN_BINARY_DIR and MODE are required")
 endif()
 
+file(READ "${CLAPGEN_SOURCE_DIR}/CMakeLists.txt" root_source)
 file(READ "${CLAPGEN_SOURCE_DIR}/cmake/ClapGenPackage.cmake" package_source)
 file(READ "${CLAPGEN_SOURCE_DIR}/cmake/ClapGenFunctions.cmake" functions_source)
 file(READ "${CLAPGEN_SOURCE_DIR}/cmake/ClapGenConfig.cmake.in" config_source)
-file(READ "${CLAPGEN_SOURCE_DIR}/cmake/ClapGenWarnings.cmake" bootstrap_source)
 include("${CLAPGEN_SOURCE_DIR}/cmake/ClapGenFunctions.cmake")
 
 set(test_root "${CLAPGEN_BINARY_DIR}/issue9/${MODE}")
@@ -46,7 +46,7 @@ if(MODE STREQUAL "consumer")
   foreach(required IN ITEMS "ClapGenTargets.cmake" "ClapGenFunctions.cmake" "check_required_components")
     require_contains("${config_source}" "${required}" "package config")
   endforeach()
-  require_contains("${bootstrap_source}" "include(ClapGenPackage)" "root CMake bootstrap")
+  require_contains("${root_source}" "include(ClapGenPackage)" "root CMake bootstrap")
 
   set(prefix "${test_root}/prefix with spaces")
   set(install_command "${CMAKE_COMMAND}" --install "${CLAPGEN_BINARY_DIR}" --prefix "${prefix}")
