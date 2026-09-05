@@ -16,12 +16,11 @@ fn generated_code(plan: &GenerationPlan) -> impl Iterator<Item = (&'static str, 
     plan.files
         .iter()
         .filter(|file| {
-            Path::new(file.path)
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| {
+            Path::new(file.path).extension().and_then(|extension| extension.to_str()).is_some_and(
+                |extension| {
                     extension.eq_ignore_ascii_case("cpp") || extension.eq_ignore_ascii_case("hpp")
-                })
+                },
+            )
         })
         .map(|file| {
             (file.path, std::str::from_utf8(&file.bytes).expect("generated C++ must be UTF-8"))
