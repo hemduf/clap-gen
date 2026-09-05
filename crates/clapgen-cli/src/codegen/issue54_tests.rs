@@ -15,10 +15,7 @@ fn ir_at(path: &Path) -> crate::ir::CanonicalIr {
 fn generated_code(plan: &GenerationPlan) -> impl Iterator<Item = (&'static str, &str)> {
     plan.files.iter().filter_map(|file| {
         (file.path.ends_with(".cpp") || file.path.ends_with(".hpp")).then(|| {
-            (
-                file.path,
-                std::str::from_utf8(&file.bytes).expect("generated C++ must be UTF-8"),
-            )
+            (file.path, std::str::from_utf8(&file.bytes).expect("generated C++ must be UTF-8"))
         })
     })
 }
@@ -77,7 +74,10 @@ fn issue54_generated_clap_callback_tables_require_no_unsafe_casts() {
             "(clap_plugin_entry_t::",
             "(clap_plugin_factory_t::",
         ] {
-            assert!(!source.contains(forbidden), "unsafe callback cast `{forbidden}` in {path}:\n{source}");
+            assert!(
+                !source.contains(forbidden),
+                "unsafe callback cast `{forbidden}` in {path}:\n{source}"
+            );
         }
     }
 }
