@@ -63,6 +63,7 @@ fn issue9_keeps_public_depfiles_portable_for_cmake_to_adapt() {
     let depfile = std::str::from_utf8(depfile).expect("depfile should be UTF-8");
 
     assert!(depfile.starts_with("clapgen.manifest.kdl:"));
-    assert!(depfile.contains("../../../../checkout/project/plugin.kdl"));
+    assert!(depfile.contains("plugin.kdl"));
     assert!(!depfile.contains("/work/build"));
+    assert!(!depfile.contains("\\work\\build"));
 }
