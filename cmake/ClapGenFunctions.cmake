@@ -103,6 +103,7 @@ function(clapgen_add_plugin target)
   endif()
 
   set(_clapgen_depfile "${_clapgen_output_dir}/clapgen.d")
+  set(_clapgen_cmake_depfile "${_clapgen_output_dir}/clapgen.cmake.d")
   set(_clapgen_manifest "${_clapgen_output_dir}/clapgen.manifest.kdl")
   set(_clapgen_sources_manifest "${_clapgen_output_dir}/clapgen.sources.kdl")
   set(_clapgen_descriptors "${_clapgen_output_dir}/clapgen_descriptors.hpp")
@@ -115,11 +116,23 @@ function(clapgen_add_plugin target)
   set(_clapgen_metadata_header "${_clapgen_output_dir}/clapgen_metadata.hpp")
   set(_clapgen_processor "${_clapgen_output_dir}/clapgen_processor.hpp")
   set(_clapgen_resources "${_clapgen_output_dir}/clapgen_resources.hpp")
+  file(RELATIVE_PATH
+    _clapgen_depfile_prefix
+    "${CMAKE_CURRENT_BINARY_DIR}"
+    "${_clapgen_output_dir}"
+  )
+  if(_clapgen_depfile_prefix STREQUAL "")
+    set(_clapgen_depfile_prefix ".")
+  endif()
+  set(_clapgen_depfile_rewriter
+    "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ClapGenRewriteDepfile.cmake"
+  )
 
   add_custom_command(
     OUTPUT "${_clapgen_manifest}"
     BYPRODUCTS
       "${_clapgen_depfile}"
+      "${_clapgen_cmake_depfile}"
       "${_clapgen_sources_manifest}"
       "${_clapgen_descriptors}"
       "${_clapgen_entry}"
@@ -135,11 +148,18 @@ function(clapgen_add_plugin target)
       "${_clapgen_generator}" generate
       --metadata "${_clapgen_metadata}"
       --out "${_clapgen_output_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DINPUT=${_clapgen_depfile}"
+      "-DOUTPUT=${_clapgen_cmake_depfile}"
+      "-DPREFIX=${_clapgen_depfile_prefix}"
+      -P "${_clapgen_depfile_rewriter}"
     DEPENDS
       "${_clapgen_metadata}"
+      "${_clapgen_depfile_rewriter}"
       ${CLAPGEN_DEPENDS}
       ${_clapgen_generator_dependency}
-    DEPFILE "${_clapgen_depfile}"
+    DEPFILE "${_clapgen_cmake_depfile}"
     COMMENT "Generating CLAP sources for ${target}"
     VERBATIM
   )
