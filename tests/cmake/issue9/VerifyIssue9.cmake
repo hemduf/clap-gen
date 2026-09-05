@@ -30,12 +30,12 @@ if(MODE STREQUAL "consumer")
   endif()
 elseif(MODE STREQUAL "incremental")
   foreach(required IN ITEMS
-      "OUTPUT \"${_clapgen_manifest}\""
+      "OUTPUT \"\${_clapgen_manifest}\""
       "BYPRODUCTS"
-      "DEPENDS \"${_clapgen_metadata}\""
-      "DEPFILE \"${_clapgen_depfile}\""
+      "DEPENDS \"\${_clapgen_metadata}\""
+      "DEPFILE \"\${_clapgen_depfile}\""
       "VERBATIM"
-      "${CMAKE_CURRENT_BINARY_DIR}/clapgen/${target}")
+      "\${CMAKE_CURRENT_BINARY_DIR}/clapgen/\${target}")
     string(FIND "${functions_source}" "${required}" found)
     if(found EQUAL -1)
       message(FATAL_ERROR "incremental generation contract is missing `${required}`")
