@@ -8,7 +8,7 @@ const TARGET: &str = "clapgen.manifest.kdl";
 
 pub(crate) fn render(ir: &CanonicalIr) -> String {
     let dependencies = dependency::collect(ir);
-    render_dependencies(&dependencies)
+    render_dependencies(TARGET, &dependencies)
 }
 
 pub(crate) fn render_for_output(
@@ -18,21 +18,19 @@ pub(crate) fn render_for_output(
 ) -> String {
     let base = dependency::normalize_path(&dependency_base.to_string_lossy());
     let output = dependency::normalize_path(&output_directory.to_string_lossy());
+    let target = dependency::resolve_from_base(&output, TARGET);
     let dependencies = dependency::collect(ir)
         .into_iter()
-        .map(|path| {
-            let physical = dependency::resolve_from_base(&base, &path);
-            dependency::relative_path(&output, &physical).unwrap_or(physical)
-        })
+        .map(|path| dependency::resolve_from_base(&base, &path))
         .collect::<Vec<_>>();
-    render_dependencies(&dependencies)
+    render_dependencies(&target, &dependencies)
 }
 
-fn render_dependencies(dependencies: &[String]) -> String {
+fn render_dependencies(target: &str, dependencies: &[String]) -> String {
     let dependencies = dependencies
         .iter()
         .map(|path| dependency::depfile_escape(path))
         .collect::<Vec<_>>()
         .join(" ");
-    format!("{TARGET}: {dependencies}\n")
+    format!("{}: {dependencies}\n", dependency::depfile_escape(target))
 }
