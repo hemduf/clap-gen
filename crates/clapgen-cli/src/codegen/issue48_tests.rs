@@ -60,7 +60,7 @@ fn issue48_keeps_non_lifecycle_main_thread_callback_fail_closed() {
     for required in [
         ".get_extension = get_extension_plugin,",
         ".on_main_thread = unavailable_on_main_thread,",
-        "static void CLAP_ABI unavailable_on_main_thread(const clap_plugin_t*)",
+        "static void CLAP_ABI unavailable_on_main_thread(const clap_plugin_t* plugin)",
     ] {
         assert!(header.contains(required), "missing `{required}`:\n{header}");
     }
