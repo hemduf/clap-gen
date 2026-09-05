@@ -104,6 +104,7 @@ jobs:
           tests/codegen/issue52/clapgen_descriptors.hpp
           tests/codegen/issue52/multi_plugin_bundle_smoke.cpp
           tests/codegen/issue53/realtime_thread_smoke.cpp
+          tests/codegen/issue54/native_abi_contract.cpp
           tests/codegen/issue59/abi_contract.cpp
           tests/codegen/issue59/backend_smoke.cpp
           tests/codegen/issue59/backend_spy_smoke.cpp
@@ -119,7 +120,7 @@ jobs:
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -128,7 +129,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: Configure C++
         run: >-

@@ -31,7 +31,7 @@ fn issue65_final_entry_factory_abi_and_routing_conformity() {
         "std::strcmp(plugin_id, plugin_descriptors[index]->id) == 0",
         "return create_plugin_instance(index, host);",
         "extern \"C\" {",
-        "CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{",
+        "CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{",
     ] {
         assert!(entry.contains(required), "missing `{required}`:\n{entry}");
     }
@@ -42,17 +42,17 @@ fn issue65_final_entry_factory_abi_and_routing_conformity() {
         "exactly one generated factory object is allowed:\n{entry}"
     );
     assert_eq!(
-        entry.matches("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{").count(),
+        entry.matches("CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{").count(),
         1,
-        "exactly one exported clap_entry definition is allowed:\n{entry}"
+        "exactly one exported clap_entry definition with external linkage is allowed:\n{entry}"
     );
 
     let namespace_end = entry
         .find("} // namespace clapgen::generated::detail")
         .expect("detail namespace must close");
     let export = entry
-        .find("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{")
-        .expect("clap_entry export must exist");
+        .find("CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{")
+        .expect("clap_entry export with external linkage must exist");
     assert!(
         export > namespace_end,
         "clap_entry must be global and outside detail namespace:\n{entry}"
