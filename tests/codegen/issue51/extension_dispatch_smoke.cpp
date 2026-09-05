@@ -93,6 +93,10 @@ int production_plugin_exposes_no_unowned_extension() {
   if (plugin == nullptr || plugin->get_extension == nullptr) {
     return 6;
   }
+  if (!plugin->init(plugin)) {
+    plugin->destroy(plugin);
+    return 7;
+  }
 
   char copied_latency[] = "clap.latency";
   char copied_tail[] = "clap.tail";
@@ -100,7 +104,7 @@ int production_plugin_exposes_no_unowned_extension() {
       plugin->get_extension(plugin, copied_tail) != nullptr ||
       plugin->get_extension(plugin, nullptr) != nullptr) {
     plugin->destroy(plugin);
-    return 7;
+    return 8;
   }
 
   plugin->destroy(plugin);
