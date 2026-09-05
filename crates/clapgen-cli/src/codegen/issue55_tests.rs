@@ -17,6 +17,18 @@ fn issue55_registers_a_real_generated_validation_plugin_and_runner() {
 }
 
 #[test]
+fn issue55_validation_fixture_declares_a_main_clap_category() {
+    let fixture = include_str!("../../../../tests/codegen/issue59/plugin.kdl");
+    assert!(
+        fixture.contains("features=\"audio-effect\"")
+            || fixture.contains("features=\"instrument\"")
+            || fixture.contains("features=\"note-effect\"")
+            || fixture.contains("features=\"analyzer\""),
+        "clap-validator requires at least one main CLAP category feature:\n{fixture}"
+    );
+}
+
+#[test]
 fn issue55_pins_and_integrity_checks_the_validator_release() {
     let runner = include_str!("../../../../tools/run_clap_validator.py");
     for required in [
