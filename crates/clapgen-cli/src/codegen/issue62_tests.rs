@@ -18,7 +18,7 @@ fn issue62_generates_defensive_entry_callbacks_and_one_global_export() {
         "std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) != 0",
         "return &generated_plugin_factory;",
         "extern \"C\" {",
-        "CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{",
+        "CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{",
         ".clap_version = CLAP_VERSION,",
         ".init = clapgen::generated::detail::entry_init,",
         ".deinit = clapgen::generated::detail::entry_deinit,",
@@ -28,17 +28,19 @@ fn issue62_generates_defensive_entry_callbacks_and_one_global_export() {
     }
 
     assert_eq!(
-        source.matches("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{").count(),
+        source
+            .matches("CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{")
+            .count(),
         1,
-        "exactly one exported clap_entry definition is allowed:\n{source}"
+        "exactly one exported clap_entry definition with external linkage is allowed:\n{source}"
     );
 
     let namespace_end = source
         .find("} // namespace clapgen::generated::detail")
         .expect("detail namespace must close");
     let export = source
-        .find("CLAP_EXPORT constinit const clap_plugin_entry_t clap_entry{")
-        .expect("clap_entry export must exist");
+        .find("CLAP_EXPORT extern constinit const clap_plugin_entry_t clap_entry{")
+        .expect("clap_entry export with external linkage must exist");
     assert!(
         export > namespace_end,
         "clap_entry must be defined at global namespace, after detail closes:\n{source}"
