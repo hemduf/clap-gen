@@ -20,10 +20,10 @@ fn issue55_registers_a_real_generated_validation_plugin_and_runner() {
 fn issue55_validation_fixture_declares_a_main_clap_category() {
     let fixture = include_str!("../../../../tests/codegen/issue59/plugin.kdl");
     assert!(
-        fixture.contains("features=\"audio-effect\"")
-            || fixture.contains("features=\"instrument\"")
-            || fixture.contains("features=\"note-effect\"")
-            || fixture.contains("features=\"analyzer\""),
+        fixture.contains("feature \"audio-effect\"")
+            || fixture.contains("feature \"instrument\"")
+            || fixture.contains("feature \"note-effect\"")
+            || fixture.contains("feature \"analyzer\""),
         "clap-validator requires at least one main CLAP category feature:\n{fixture}"
     );
 }
@@ -40,6 +40,17 @@ fn issue55_pins_and_integrity_checks_the_validator_release() {
         "validate",
     ] {
         assert!(runner.contains(required), "validator runner is missing `{required}`:\n{runner}");
+    }
+}
+
+#[test]
+fn issue55_unpacks_nested_validator_release_archives() {
+    let runner = include_str!("../../../../tools/run_clap_validator.py");
+    for required in ["import tarfile", "*.tar.gz", "tarfile.open"] {
+        assert!(
+            runner.contains(required),
+            "validator runner must unpack the nested tar.gz used by Unix release assets; missing `{required}`:\n{runner}"
+        );
     }
 }
 
