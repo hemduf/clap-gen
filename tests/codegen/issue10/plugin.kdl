@@ -1,0 +1,19 @@
+clapgen schema="1.0.0"
+plugin id="com.example.issue10" name="Issue10" vendor="Example" version="1.0.0"
+processor class="Issue10Processor"
+parameters {
+    param id="gain" name="Gain" min=0.0 max=2.0 default=1.0 flags="automatable,modulatable" unit="x"
+    param id="mode" name="Mode" min=0.0 max=2.0 default=0.0 flags="automatable,stepped,enum" steps=3
+}
+audio-ports {}
+note-ports {}
+state {
+    field "seed" type="u32" default="7" tag="seed"
+}
+gui {}
+presets {}
+factories {}
+extensions {
+    enable "clap.params"
+    enable "clap.state"
+}
