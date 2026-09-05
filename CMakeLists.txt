@@ -256,6 +256,7 @@ if(BUILD_TESTING)
     clapgen_enable_warnings(clapgen_issue49_lifecycle_smoke)
     add_test(NAME clapgen.codegen.issue49.lifecycle_smoke COMMAND clapgen_issue49_lifecycle_smoke)
 
+    include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue10/Issue10.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue50/Issue50.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue51/Issue51.cmake")
     include("${CMAKE_CURRENT_SOURCE_DIR}/tests/codegen/issue52/Issue52.cmake")
