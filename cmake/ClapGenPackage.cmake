@@ -34,6 +34,11 @@ function(_clapgen_configure_package)
     COMPATIBILITY SameMajorVersion
   )
 
+  export(
+    EXPORT ClapGenTargets
+    FILE "${CMAKE_CURRENT_BINARY_DIR}/ClapGenTargets.cmake"
+    NAMESPACE ClapGen::
+  )
   install(
     EXPORT ClapGenTargets
     FILE ClapGenTargets.cmake
