@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use crate::ir::CanonicalIr;
@@ -20,6 +21,50 @@ pub(crate) fn render_for_output(
 ) -> GenerationPlan {
     let depfile = depfile::render_for_output(ir, dependency_base, output_directory);
     render_with_depfile(ir, depfile.as_bytes())
+}
+
+pub(crate) fn render_for_output_checked(
+    ir: &CanonicalIr,
+    dependency_base: &Path,
+    output_directory: &Path,
+) -> Result<GenerationPlan, String> {
+    validate_runtime_ids(ir)?;
+    Ok(render_for_output(ir, dependency_base, output_directory))
+}
+
+pub(crate) fn validate_runtime_ids(ir: &CanonicalIr) -> Result<(), String> {
+    let params_enabled =
+        ir.stable_extension_items().iter().any(|extension| extension.id == "clap.params");
+    if !params_enabled {
+        return Ok(());
+    }
+
+    let mut numeric_ids = BTreeSet::new();
+    for parameter in ir.parameters() {
+        let Some(id) = ir
+            .persistent_ids()
+            .iter()
+            .find(|entry| entry.kind == "parameter" && entry.key == parameter.id)
+        else {
+            return Err(format!(
+                "parameter `{}` has no immutable CLAP ID\nhint: run `clapgen ids allocate plugin.ids.kdl parameter {}` before generating the plugin",
+                parameter.id, parameter.id
+            ));
+        };
+        if id.value == u32::MAX {
+            return Err(format!(
+                "parameter `{}` uses CLAP_INVALID_ID ({})\nhint: allocate a different immutable numeric ID",
+                parameter.id, id.value
+            ));
+        }
+        if !numeric_ids.insert(id.value) {
+            return Err(format!(
+                "parameter `{}` collides on immutable CLAP ID {}\nhint: repair plugin.ids.kdl before generating the plugin",
+                parameter.id, id.value
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
