@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::ir::CanonicalIr;
+use crate::ir::{CanonicalIr, ParameterIr};
 
 use super::cpp_literal;
 
@@ -12,8 +12,12 @@ pub(crate) struct OwnedPluginExtension<'a> {
     pub(crate) table_symbol: &'a str,
 }
 
-pub(crate) fn header(_ir: &CanonicalIr) -> String {
-    header_for_owned_bindings(&[])
+pub(crate) fn header(ir: &CanonicalIr) -> String {
+    let mut output = header_for_owned_bindings(&[]);
+    if has_stable_extension(ir, "clap.params") {
+        output.push_str(&parameter_spec_block(ir));
+    }
+    output
 }
 
 pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -> String {
@@ -47,4 +51,90 @@ pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -
     format!(
         "{BANNER}\n#pragma once\n\n#include <cstdint>\n#include <cstring>\n\nnamespace clapgen::generated::detail {{\n\nstruct PluginExtensionBinding {{\n    const char* id;\n    const void* table;\n}};\n\ninline const void* lookup_plugin_extension(\n    const PluginExtensionBinding* bindings,\n    std::uint32_t count,\n    const char* extension_id) noexcept {{\n    if (bindings == nullptr || extension_id == nullptr) {{\n        return nullptr;\n    }}\n    for (std::uint32_t index = 0; index < count; ++index) {{\n        if (bindings[index].id != nullptr &&\n            std::strcmp(extension_id, bindings[index].id) == 0) {{\n            return bindings[index].table;\n        }}\n    }}\n    return nullptr;\n}}\n\n// Extension declarations are not implementation ownership. Later capability generators\n// append bindings only when they emit the complete native clap_plugin_*_t table.\n{storage}inline constexpr std::uint32_t plugin_extension_count = {count}u;\n\ninline const void* generated_plugin_extension(const char* extension_id) noexcept {{\n    return lookup_plugin_extension({binding_pointer}, plugin_extension_count, extension_id);\n}}\n\n}} // namespace clapgen::generated::detail\n"
     )
+}
+
+fn has_stable_extension(ir: &CanonicalIr, id: &str) -> bool {
+    ir.stable_extension_items().iter().any(|extension| extension.id == id)
+}
+
+fn parameter_spec_block(ir: &CanonicalIr) -> String {
+    let mut output = String::from(
+        "\n#include <array>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
+struct GeneratedParameterSpec {\n\
+    clap_id id;\n\
+    clap_param_info_flags flags;\n\
+    const char* name;\n\
+    double min_value;\n\
+    double max_value;\n\
+    double default_value;\n\
+};\n\n",
+    );
+
+    writeln!(
+        &mut output,
+        "inline constexpr std::array<GeneratedParameterSpec, {}> generated_parameter_specs{{{{",
+        ir.parameters().len()
+    )
+    .expect("writing to String cannot fail");
+    for parameter in ir.parameters() {
+        let id = parameter_numeric_id(ir, parameter);
+        let flags = parameter_flags(parameter);
+        let name = cpp_literal::utf8_c_string(&parameter.name);
+        writeln!(
+            &mut output,
+            "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {}, {}, {}}},",
+            parameter.min, parameter.max, parameter.default
+        )
+        .expect("writing to String cannot fail");
+    }
+    output.push_str("}};\n\ninline constexpr bool generated_params_enabled = true;\n\n} // namespace clapgen::generated::detail\n");
+    output
+}
+
+fn parameter_numeric_id(ir: &CanonicalIr, parameter: &ParameterIr) -> u32 {
+    ir.persistent_ids()
+        .iter()
+        .find(|id| id.kind == "parameter" && id.key == parameter.id)
+        .map_or_else(|| stable_fallback_id(&parameter.id), |id| id.value)
+}
+
+fn stable_fallback_id(value: &str) -> u32 {
+    // FNV-1a is used only for development manifests without plugin.ids.kdl. Released
+    // plugins should allocate registry IDs so renames preserve their numeric identity.
+    let mut hash = 2_166_136_261u32;
+    for byte in value.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    if hash == u32::MAX { u32::MAX - 1 } else { hash }
+}
+
+fn parameter_flags(parameter: &ParameterIr) -> String {
+    let mut flags = parameter
+        .flags
+        .iter()
+        .filter_map(|flag| match flag.as_str() {
+            "stepped" => Some("CLAP_PARAM_IS_STEPPED"),
+            "periodic" => Some("CLAP_PARAM_IS_PERIODIC"),
+            "hidden" => Some("CLAP_PARAM_IS_HIDDEN"),
+            "readonly" => Some("CLAP_PARAM_IS_READONLY"),
+            "bypass" => Some("CLAP_PARAM_IS_BYPASS"),
+            "automatable" => Some("CLAP_PARAM_IS_AUTOMATABLE"),
+            "automatable-per-note-id" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID"),
+            "automatable-per-key" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_KEY"),
+            "automatable-per-channel" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL"),
+            "automatable-per-port" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_PORT"),
+            "modulatable" => Some("CLAP_PARAM_IS_MODULATABLE"),
+            "modulatable-per-note-id" => Some("CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID"),
+            "modulatable-per-key" => Some("CLAP_PARAM_IS_MODULATABLE_PER_KEY"),
+            "modulatable-per-channel" => Some("CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL"),
+            "modulatable-per-port" => Some("CLAP_PARAM_IS_MODULATABLE_PER_PORT"),
+            "requires-process" => Some("CLAP_PARAM_REQUIRES_PROCESS"),
+            "enum" => Some("CLAP_PARAM_IS_ENUM"),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    flags.sort_unstable();
+    flags.dedup();
+    if flags.is_empty() { "0u".to_owned() } else { flags.join(" | ") }
 }
