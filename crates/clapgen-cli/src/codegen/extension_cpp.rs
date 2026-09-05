@@ -14,9 +14,7 @@ pub(crate) struct OwnedPluginExtension<'a> {
 
 pub(crate) fn header(ir: &CanonicalIr) -> String {
     let mut output = header_for_owned_bindings(&[]);
-    if has_stable_extension(ir, "clap.params") {
-        output.push_str(&parameter_spec_block(ir));
-    }
+    output.push_str(&parameter_spec_block(ir));
     output
 }
 
@@ -58,6 +56,8 @@ fn has_stable_extension(ir: &CanonicalIr, id: &str) -> bool {
 }
 
 fn parameter_spec_block(ir: &CanonicalIr) -> String {
+    let enabled = has_stable_extension(ir, "clap.params");
+    let parameters = if enabled { ir.parameters() } else { &[] };
     let mut output = String::from(
         "\n#include <array>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
 struct GeneratedParameterSpec {\n\
@@ -73,10 +73,10 @@ struct GeneratedParameterSpec {\n\
     writeln!(
         &mut output,
         "inline constexpr std::array<GeneratedParameterSpec, {}> generated_parameter_specs{{{{",
-        ir.parameters().len()
+        parameters.len()
     )
     .expect("writing to String cannot fail");
-    for parameter in ir.parameters() {
+    for parameter in parameters {
         let id = parameter_numeric_id(ir, parameter);
         let flags = parameter_flags(parameter);
         let name = cpp_literal::utf8_c_string(&parameter.name);
@@ -87,7 +87,13 @@ struct GeneratedParameterSpec {\n\
         )
         .expect("writing to String cannot fail");
     }
-    output.push_str("}};\n\ninline constexpr bool generated_params_enabled = true;\n\n} // namespace clapgen::generated::detail\n");
+    writeln!(
+        &mut output,
+        "}};\n\ninline constexpr bool generated_params_enabled = {};\n\n}} // namespace clapgen::generated::detail",
+        if enabled { "true" } else { "false" }
+    )
+    .expect("writing to String cannot fail");
+    output.push('\n');
     output
 }
 
