@@ -12,13 +12,27 @@ namespace detail = clapgen::generated::detail;
 namespace {
 
 struct AbiProcessor {
-  bool init() { return true; }
-  bool activate(double, std::uint32_t, std::uint32_t) { return true; }
-  void deactivate() {}
-  bool start_processing() { return true; }
-  void stop_processing() {}
-  void reset() {}
-  clap_process_status process(const clap_process_t*) { return CLAP_PROCESS_CONTINUE; }
+  bool init() {
+    ++state;
+    return true;
+  }
+  bool activate(double, std::uint32_t, std::uint32_t) {
+    ++state;
+    return true;
+  }
+  void deactivate() { ++state; }
+  bool start_processing() {
+    ++state;
+    return true;
+  }
+  void stop_processing() { ++state; }
+  void reset() { ++state; }
+  clap_process_status process(const clap_process_t*) {
+    ++state;
+    return CLAP_PROCESS_CONTINUE;
+  }
+
+  std::uint32_t state = 0u;
 };
 
 static_assert(generated::NativeProcessor<AbiProcessor>);
