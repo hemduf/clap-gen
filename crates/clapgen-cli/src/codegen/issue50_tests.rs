@@ -6,8 +6,8 @@ fn issue50_contains_every_generated_boundary_that_can_reach_throwing_cpp() {
 
     assert_eq!(
         header.matches("catch (...)").count(),
-        8,
-        "every processor/destructor-facing CLAP callback must contain exceptions:\n{header}"
+        11,
+        "every processor/destructor/thread-check-facing CLAP callback must contain exceptions:\n{header}"
     );
 
     for required in [
@@ -19,6 +19,9 @@ fn issue50_contains_every_generated_boundary_that_can_reach_throwing_cpp() {
         "try {\n            instance->processor_.deactivate();\n        } catch (...) {\n        }\n        instance->state_ = LifecycleState::Initialized;",
         "try {\n            instance->processor_.reset();\n        } catch (...) {\n        }",
         "try {\n            return instance->processor_.process(process);\n        } catch (...) {\n            return CLAP_PROCESS_ERROR;\n        }",
+        "host_->get_extension(host_, CLAP_EXT_THREAD_CHECK));\n            return true;\n        } catch (...) {\n            return false;",
+        "return thread_check_->is_main_thread(host_);\n        } catch (...) {\n            return false;",
+        "return thread_check_->is_audio_thread(host_);\n        } catch (...) {\n            return false;",
     ] {
         assert!(header.contains(required), "missing containment contract `{required}`:\n{header}");
     }
