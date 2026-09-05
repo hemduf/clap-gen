@@ -1,6 +1,7 @@
 #[test]
 fn issue9_exports_an_installable_cmake_package() {
-    let root = include_str!("../../../../CMakeLists.txt");
+    let package = include_str!("../../../../cmake/ClapGenPackage.cmake");
+    let config = include_str!("../../../../cmake/ClapGenConfig.cmake.in");
     for required in [
         "ClapGenConfig.cmake.in",
         "ClapGenConfigVersion.cmake",
@@ -9,15 +10,16 @@ fn issue9_exports_an_installable_cmake_package() {
         "EXPORT_NAME Runtime",
     ] {
         assert!(
-            root.contains(required),
-            "root CMake must install/export the first-class ClapGen package; missing `{required}`:\n{root}"
+            package.contains(required) || config.contains(required),
+            "installable ClapGen package is missing `{required}`"
         );
     }
 }
 
 #[test]
 fn issue9_registers_consumer_and_incremental_integration_tests() {
-    let root = include_str!("../../../../CMakeLists.txt");
+    let package = include_str!("../../../../cmake/ClapGenPackage.cmake");
+    let tests = include_str!("../../../../tests/cmake/issue9/Issue9.cmake");
     for required in [
         "tests/cmake/issue9/Issue9.cmake",
         "clapgen.cmake.issue9.consumer",
@@ -25,8 +27,8 @@ fn issue9_registers_consumer_and_incremental_integration_tests() {
         "clapgen.cmake.issue9.cross",
     ] {
         assert!(
-            root.contains(required),
-            "#9 must exercise installed consumers, no-op/depfile regeneration and cross-host tools; missing `{required}`:\n{root}"
+            package.contains(required) || tests.contains(required),
+            "#9 integration gates are missing `{required}`"
         );
     }
 }
