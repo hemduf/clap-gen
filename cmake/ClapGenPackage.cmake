@@ -50,6 +50,7 @@ function(_clapgen_configure_package)
       "${CMAKE_CURRENT_BINARY_DIR}/ClapGenConfig.cmake"
       "${CMAKE_CURRENT_BINARY_DIR}/ClapGenConfigVersion.cmake"
       "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ClapGenFunctions.cmake"
+      "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ClapGenRewriteDepfile.cmake"
     DESTINATION "${_clapgen_package_dir}"
   )
 
