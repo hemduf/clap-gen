@@ -92,10 +92,7 @@ fn issue53_smoke_is_registered_in_cmake_and_cross_platform_ci() {
     );
 
     let ci = include_str!("../../../../.github/workflows/ci.yml");
-    for required in [
-        "tests/codegen/issue53/realtime_thread_smoke.cpp",
-        "tests/codegen/issue53",
-    ] {
+    for required in ["tests/codegen/issue53/realtime_thread_smoke.cpp", "tests/codegen/issue53"] {
         assert!(ci.contains(required), "CI is missing `{required}`:\n{ci}");
     }
 }
