@@ -56,8 +56,9 @@ fn has_stable_extension(ir: &CanonicalIr, id: &str) -> bool {
 }
 
 fn parameter_spec_block(ir: &CanonicalIr) -> String {
-    let enabled = has_stable_extension(ir, "clap.params");
-    let parameters = if enabled { ir.parameters() } else { &[] };
+    let params_enabled = has_stable_extension(ir, "clap.params");
+    let state_enabled = has_stable_extension(ir, "clap.state");
+    let parameters = if params_enabled { ir.parameters() } else { &[] };
     let mut output = String::from(
         "\n#include <array>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
 struct GeneratedParameterSpec {\n\
@@ -89,8 +90,9 @@ struct GeneratedParameterSpec {\n\
     }
     writeln!(
         &mut output,
-        "}};\n\ninline constexpr bool generated_params_enabled = {};\n\n}} // namespace clapgen::generated::detail",
-        if enabled { "true" } else { "false" }
+        "}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\ninline constexpr auto make_default_parameter_values() noexcept {{\n    std::array<double, generated_parameter_specs.size()> values{{}};\n    for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n        values[index] = generated_parameter_specs[index].default_value;\n    }}\n    return values;\n}}\n\n}} // namespace clapgen::generated::detail",
+        if params_enabled { "true" } else { "false" },
+        if state_enabled { "true" } else { "false" }
     )
     .expect("writing to String cannot fail");
     output.push('\n');
