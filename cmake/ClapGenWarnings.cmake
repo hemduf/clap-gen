@@ -1,5 +1,7 @@
 include_guard(GLOBAL)
 
+include(ClapGenPackage)
+
 function(clapgen_enable_warnings target)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /permissive-)
