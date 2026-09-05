@@ -25,9 +25,9 @@ fn issue9_registers_consumer_and_incremental_integration_tests() {
     let tests = include_str!("../../../../tests/cmake/issue9/Issue9.cmake");
 
     assert!(package.contains("tests/cmake/issue9/Issue9.cmake"));
-    assert!(tests.contains("clapgen.cmake.issue9.consumer"));
-    assert!(tests.contains("clapgen.cmake.issue9.incremental"));
-    assert!(tests.contains("clapgen.cmake.issue9.cross"));
+    assert!(tests.contains("consumer incremental cross"));
+    assert!(tests.contains("clapgen.cmake.issue9.${_clapgen_issue9_mode}"));
+    assert!(tests.contains("clapgen.cmake.issue9.real-codegen"));
 }
 
 #[test]
