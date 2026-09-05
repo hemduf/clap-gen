@@ -9,14 +9,18 @@ use super::render_for_output;
 fn issue9_exports_an_installable_cmake_package() {
     let package = include_str!("../../../../cmake/ClapGenPackage.cmake");
     let config = include_str!("../../../../cmake/ClapGenConfig.cmake.in");
+    let functions = include_str!("../../../../cmake/ClapGenFunctions.cmake");
 
     assert!(package.contains("ClapGenConfig.cmake.in"));
     assert!(package.contains("ClapGenConfigVersion.cmake"));
     assert!(package.contains("ClapGenTargets"));
     assert!(package.contains("ClapGenFunctions.cmake"));
+    assert!(package.contains("ClapGenRewriteDepfile.cmake"));
     assert!(package.contains("EXPORT_NAME Runtime"));
     assert!(config.contains("ClapGenTargets.cmake"));
     assert!(config.contains("ClapGenFunctions.cmake"));
+    assert!(functions.contains("ClapGenRewriteDepfile.cmake"));
+    assert!(functions.contains("DEPFILE \"${_clapgen_cmake_depfile}\""));
 }
 
 #[test]
@@ -31,7 +35,7 @@ fn issue9_registers_consumer_and_incremental_integration_tests() {
 }
 
 #[test]
-fn issue9_cmake_depfile_uses_physical_target_and_dependency_paths() {
+fn issue9_keeps_public_depfiles_portable_for_cmake_to_adapt() {
     let source = concat!(
         "clapgen schema=\"1.0.0\"\n",
         "plugin id=\"com.example.issue9\" name=\"Issue9\" ",
@@ -58,6 +62,7 @@ fn issue9_cmake_depfile_uses_physical_target_and_dependency_paths() {
         plan.files.iter().find(|file| file.path == "clapgen.d").expect("depfile").bytes.as_slice();
     let depfile = std::str::from_utf8(depfile).expect("depfile should be UTF-8");
 
-    assert!(depfile.starts_with("/work/build/clapgen/plugin/clapgen.manifest.kdl:"));
-    assert!(depfile.contains("/checkout/project/plugin.kdl"));
+    assert!(depfile.starts_with("clapgen.manifest.kdl:"));
+    assert!(depfile.contains("../../../../checkout/project/plugin.kdl"));
+    assert!(!depfile.contains("/work/build"));
 }
