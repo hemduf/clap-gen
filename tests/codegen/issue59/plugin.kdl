@@ -1,5 +1,5 @@
 clapgen schema="1.0.0"
-plugin id="com.example.entry" name="Entry" vendor="Example" version="1.0.0"
+plugin id="com.example.entry" name="Entry" vendor="Example" version="1.0.0" features="audio-effect"
 processor class="EntryProcessor"
 parameters {}
 audio-ports {}
