@@ -54,13 +54,8 @@ fn issue9_cmake_depfile_uses_physical_target_and_dependency_paths() {
         Path::new("/checkout/project"),
         Path::new("/work/build/clapgen/plugin"),
     );
-    let depfile = plan
-        .files
-        .iter()
-        .find(|file| file.path == "clapgen.d")
-        .expect("depfile")
-        .bytes
-        .as_slice();
+    let depfile =
+        plan.files.iter().find(|file| file.path == "clapgen.d").expect("depfile").bytes.as_slice();
     let depfile = std::str::from_utf8(depfile).expect("depfile should be UTF-8");
 
     assert!(depfile.starts_with("/work/build/clapgen/plugin/clapgen.manifest.kdl:"));
