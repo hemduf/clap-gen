@@ -9,40 +9,43 @@ use super::render_for_output;
 fn issue9_exports_an_installable_cmake_package() {
     let package = include_str!("../../../../cmake/ClapGenPackage.cmake");
     let config = include_str!("../../../../cmake/ClapGenConfig.cmake.in");
-    for required in [
-        "ClapGenConfig.cmake.in",
-        "ClapGenConfigVersion.cmake",
-        "ClapGenTargets",
-        "ClapGenFunctions.cmake",
-        "EXPORT_NAME Runtime",
-    ] {
-        assert!(
-            package.contains(required) || config.contains(required),
-            "installable ClapGen package is missing `{required}`"
-        );
-    }
+
+    assert!(package.contains("ClapGenConfig.cmake.in"));
+    assert!(package.contains("ClapGenConfigVersion.cmake"));
+    assert!(package.contains("ClapGenTargets"));
+    assert!(package.contains("ClapGenFunctions.cmake"));
+    assert!(package.contains("EXPORT_NAME Runtime"));
+    assert!(config.contains("ClapGenTargets.cmake"));
+    assert!(config.contains("ClapGenFunctions.cmake"));
 }
 
 #[test]
 fn issue9_registers_consumer_and_incremental_integration_tests() {
     let package = include_str!("../../../../cmake/ClapGenPackage.cmake");
     let tests = include_str!("../../../../tests/cmake/issue9/Issue9.cmake");
-    for required in [
-        "tests/cmake/issue9/Issue9.cmake",
-        "clapgen.cmake.issue9.consumer",
-        "clapgen.cmake.issue9.incremental",
-        "clapgen.cmake.issue9.cross",
-    ] {
-        assert!(
-            package.contains(required) || tests.contains(required),
-            "#9 integration gates are missing `{required}`"
-        );
-    }
+
+    assert!(package.contains("tests/cmake/issue9/Issue9.cmake"));
+    assert!(tests.contains("clapgen.cmake.issue9.consumer"));
+    assert!(tests.contains("clapgen.cmake.issue9.incremental"));
+    assert!(tests.contains("clapgen.cmake.issue9.cross"));
 }
 
 #[test]
 fn issue9_cmake_depfile_uses_physical_target_and_dependency_paths() {
-    let source = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.issue9\" name=\"Issue9\" vendor=\"Example\" version=\"1.0.0\"\nprocessor class=\"Issue9Processor\"\nparameters {}\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n";
+    let source = concat!(
+        "clapgen schema=\"1.0.0\"\n",
+        "plugin id=\"com.example.issue9\" name=\"Issue9\" ",
+        "vendor=\"Example\" version=\"1.0.0\"\n",
+        "processor class=\"Issue9Processor\"\n",
+        "parameters {}\n",
+        "audio-ports {}\n",
+        "note-ports {}\n",
+        "state {}\n",
+        "gui {}\n",
+        "presets {}\n",
+        "factories {}\n",
+        "extensions {}\n",
+    );
     let metadata_path = Path::new("/checkout/project/plugin.kdl");
     let metadata = parse_metadata(metadata_path, source).expect("metadata should parse");
     let ir = build_ir(metadata_path, source, &metadata).expect("IR should build");
@@ -60,12 +63,6 @@ fn issue9_cmake_depfile_uses_physical_target_and_dependency_paths() {
         .as_slice();
     let depfile = std::str::from_utf8(depfile).expect("depfile should be UTF-8");
 
-    assert!(
-        depfile.starts_with("/work/build/clapgen/plugin/clapgen.manifest.kdl:"),
-        "CMake must see the exact custom-command output as the depfile target: {depfile}"
-    );
-    assert!(
-        depfile.contains("/checkout/project/plugin.kdl"),
-        "CMake must resolve imported/resource dependencies independently of its binary dir: {depfile}"
-    );
+    assert!(depfile.starts_with("/work/build/clapgen/plugin/clapgen.manifest.kdl:"));
+    assert!(depfile.contains("/checkout/project/plugin.kdl"));
 }
