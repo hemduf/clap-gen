@@ -105,6 +105,7 @@ jobs:
           tests/codegen/issue52/multi_plugin_bundle_smoke.cpp
           tests/codegen/issue53/realtime_thread_smoke.cpp
           tests/codegen/issue54/native_abi_contract.cpp
+          tests/codegen/issue55/validator_backend.cpp
           tests/codegen/issue59/abi_contract.cpp
           tests/codegen/issue59/backend_smoke.cpp
           tests/codegen/issue59/backend_spy_smoke.cpp
@@ -120,7 +121,7 @@ jobs:
         run: >-
           cppcheck --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue55 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: C++ static analysis (Windows)
         if: runner.os == 'Windows'
@@ -129,7 +130,7 @@ jobs:
           & 'C:\Program Files\Cppcheck\cppcheck.exe'
           --enable=warning,style,performance,portability
           --error-exitcode=1 --std=c++20 --suppress=missingIncludeSystem
-          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
+          runtime tests/runtime tests/codegen/issue48 tests/codegen/issue49 tests/codegen/issue50 tests/codegen/issue51 tests/codegen/issue52 tests/codegen/issue53 tests/codegen/issue54 tests/codegen/issue55 tests/codegen/issue59 tests/codegen/issue60 tests/codegen/issue61 tests/codegen/issue62 tests/codegen/issue63 tests/codegen/issue64
 
       - name: Configure C++
         run: >-
@@ -143,6 +144,12 @@ jobs:
 
       - name: Test C++
         run: ctest --test-dir build/cpp -C ${{ matrix.build_type }} --output-on-failure
+
+      - name: Validate generated CLAP with clap-validator
+        run: >-
+          python tools/run_clap_validator.py
+          --search-root build/cpp
+          --plugin-name clapgen_issue55_validation.clap
 
       - name: Upload CTest log on failure
         if: failure()
@@ -169,9 +176,11 @@ jobs:
         run: >-
           cmake -S . -B build/sanitizers
           -DBUILD_TESTING=ON
+          -DCLAPGEN_FETCH_CLAP=ON
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
           -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
 
       - name: Build ASan and UBSan
         run: cmake --build build/sanitizers --config Debug
