@@ -22,6 +22,17 @@ pub(crate) fn render_for_output(
     render_with_depfile(ir, depfile.as_bytes())
 }
 
+pub(crate) fn render_for_output_with_depfile_base(
+    ir: &CanonicalIr,
+    dependency_base: &Path,
+    output_directory: &Path,
+    depfile_base: &Path,
+) -> GenerationPlan {
+    let depfile =
+        depfile::render_for_depfile_base(ir, dependency_base, output_directory, depfile_base);
+    render_with_depfile(ir, depfile.as_bytes())
+}
+
 fn render_with_depfile(ir: &CanonicalIr, depfile: &[u8]) -> GenerationPlan {
     let descriptor_header = descriptor_cpp::header(ir).into_bytes();
     let entry_source = entry_cpp::source().into_bytes();
