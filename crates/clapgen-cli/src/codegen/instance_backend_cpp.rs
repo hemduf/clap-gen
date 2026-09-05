@@ -4,8 +4,17 @@ const HEADER_BODY: &str = r#"
 #pragma once
 
 #include <clap/clap.h>
+#include <clap/ext/params.h>
+#include <clap/ext/state.h>
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <system_error>
 
 #ifndef NDEBUG
 #include <clap/ext/thread-check.h>
@@ -19,7 +28,7 @@ namespace clapgen::generated::detail {
 
 // Lifetime contract: plugin descriptors point to immutable generated static storage.
 // host_ is a borrowed, non-owning pointer owned by the CLAP host.
-// host extension pointers are borrowed and remain host-owned.
+// host extension pointers and callback event/stream pointers are borrowed and remain host-owned.
 
 enum class LifecycleState {
     Created,
@@ -28,6 +37,33 @@ enum class LifecycleState {
     Active,
     Processing,
 };
+
+enum class StateRecordKind : std::uint16_t {
+    Parameter = 1u,
+    Field = 2u,
+};
+
+inline constexpr std::uint32_t kStateMagic = 0x43475031u; // "CGP1"
+inline constexpr std::uint16_t kStateSchemaVersion = 1u;
+inline constexpr std::uint32_t kMaxStateBytes = 1024u * 1024u;
+
+struct StateHeader {
+    std::uint32_t magic;
+    std::uint16_t schema_version;
+    std::uint16_t reserved;
+    std::uint32_t record_count;
+    std::uint32_t payload_bytes;
+};
+
+struct StateRecordHeader {
+    StateRecordKind kind;
+    std::uint16_t reserved;
+    clap_id id;
+    std::uint32_t size;
+};
+
+static_assert(sizeof(StateHeader) == 16u);
+static_assert(sizeof(StateRecordHeader) == 12u);
 
 template <NativeProcessor Processor>
 class PluginInstance final {
@@ -67,6 +103,8 @@ public:
     const clap_host_t* host() const noexcept { return host_; }
 
 private:
+    using ParameterValues = decltype(make_default_parameter_values());
+
     explicit PluginInstance(const clap_host_t* host) : host_(host) {}
 
     bool configure(const clap_plugin_descriptor_t* descriptor) noexcept {
@@ -283,6 +321,11 @@ private:
         }
 #endif
         try {
+            if constexpr (generated_params_enabled) {
+                if (!instance->route_parameter_events(process->in_events, process->frames_count)) {
+                    return CLAP_PROCESS_ERROR;
+                }
+            }
             return instance->processor_.process(process);
         } catch (...) {
             return CLAP_PROCESS_ERROR;
@@ -295,7 +338,20 @@ private:
         if (from_plugin(plugin) == nullptr || extension_id == nullptr) {
             return nullptr;
         }
-        return generated_plugin_extension(extension_id);
+        if (const void* extension = generated_plugin_extension(extension_id)) {
+            return extension;
+        }
+        if constexpr (generated_params_enabled) {
+            if (std::strcmp(extension_id, CLAP_EXT_PARAMS) == 0) {
+                return &params_extension_;
+            }
+        }
+        if constexpr (generated_state_enabled) {
+            if (std::strcmp(extension_id, CLAP_EXT_STATE) == 0) {
+                return &state_extension_;
+            }
+        }
+        return nullptr;
     }
 
     static void CLAP_ABI unavailable_on_main_thread(const clap_plugin_t* plugin) {
@@ -309,10 +365,458 @@ private:
 #endif
     }
 
+    static std::int32_t parameter_index_for_id(clap_id id) noexcept {
+        for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {
+            if (generated_parameter_specs[index].id == id) {
+                return static_cast<std::int32_t>(index);
+            }
+        }
+        return -1;
+    }
+
+    static bool is_global_target(const clap_event_param_value_t& event) noexcept {
+        return event.note_id < 0 && event.port_index < 0 && event.channel < 0 && event.key < 0;
+    }
+
+    static bool copy_text(char* destination, std::size_t capacity, const char* source) noexcept {
+        if (destination == nullptr || source == nullptr || capacity == 0u) {
+            return false;
+        }
+        std::size_t length = 0u;
+        while (length + 1u < capacity && source[length] != '\0') {
+            destination[length] = source[length];
+            ++length;
+        }
+        destination[length] = '\0';
+        return source[length] == '\0';
+    }
+
+    static std::uint32_t CLAP_ABI params_count_plugin(const clap_plugin_t* plugin) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || !generated_params_enabled) {
+            return 0u;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return 0u;
+        }
+#endif
+        return static_cast<std::uint32_t>(generated_parameter_specs.size());
+    }
+
+    static bool CLAP_ABI params_get_info_plugin(
+        const clap_plugin_t* plugin,
+        std::uint32_t param_index,
+        clap_param_info_t* param_info) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || param_info == nullptr || !generated_params_enabled ||
+            param_index >= generated_parameter_specs.size()) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        const auto& spec = generated_parameter_specs[param_index];
+        *param_info = clap_param_info_t{};
+        param_info->id = spec.id;
+        param_info->flags = spec.flags;
+        param_info->cookie = const_cast<GeneratedParameterSpec*>(&spec);
+        if (!copy_text(param_info->name, CLAP_NAME_SIZE, spec.name)) {
+            return false;
+        }
+        param_info->module[0] = '\0';
+        param_info->min_value = spec.min_value;
+        param_info->max_value = spec.max_value;
+        param_info->default_value = spec.default_value;
+        return true;
+    }
+
+    static bool CLAP_ABI params_get_value_plugin(
+        const clap_plugin_t* plugin,
+        clap_id param_id,
+        double* out_value) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || out_value == nullptr || !generated_params_enabled) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        const auto index = parameter_index_for_id(param_id);
+        if (index < 0) {
+            return false;
+        }
+        *out_value = instance->parameter_values_[static_cast<std::size_t>(index)];
+        return true;
+    }
+
+    static bool CLAP_ABI params_value_to_text_plugin(
+        const clap_plugin_t* plugin,
+        clap_id param_id,
+        double value,
+        char* out_buffer,
+        std::uint32_t out_buffer_capacity) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || out_buffer == nullptr || out_buffer_capacity == 0u ||
+            !generated_params_enabled || parameter_index_for_id(param_id) < 0 ||
+            !std::isfinite(value)) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        auto* begin = out_buffer;
+        auto* end = out_buffer + out_buffer_capacity - 1u;
+        const auto result = std::to_chars(begin, end, value, std::chars_format::general);
+        if (result.ec != std::errc{}) {
+            out_buffer[0] = '\0';
+            return false;
+        }
+        *result.ptr = '\0';
+        return true;
+    }
+
+    static bool CLAP_ABI params_text_to_value_plugin(
+        const clap_plugin_t* plugin,
+        clap_id param_id,
+        const char* param_value_text,
+        double* out_value) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || param_value_text == nullptr || out_value == nullptr ||
+            !generated_params_enabled) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        const auto index = parameter_index_for_id(param_id);
+        if (index < 0) {
+            return false;
+        }
+        const char* end = param_value_text + std::strlen(param_value_text);
+        double value = 0.0;
+        const auto result = std::from_chars(param_value_text, end, value, std::chars_format::general);
+        if (result.ec != std::errc{} || result.ptr != end || !std::isfinite(value)) {
+            return false;
+        }
+        const auto& spec = generated_parameter_specs[static_cast<std::size_t>(index)];
+        if (value < spec.min_value || value > spec.max_value) {
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    static void CLAP_ABI params_flush_plugin(
+        const clap_plugin_t* plugin,
+        const clap_input_events_t* in,
+        const clap_output_events_t* out) {
+        (void)out;
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || !generated_params_enabled) {
+            return;
+        }
+#ifndef NDEBUG
+        if (instance->state_ == LifecycleState::Initialized) {
+            if (!instance->debug_on_main_thread()) {
+                return;
+            }
+        } else if (!instance->debug_on_audio_thread()) {
+            return;
+        }
+#endif
+        try {
+            (void)instance->route_parameter_events(in, 0u);
+        } catch (...) {
+        }
+    }
+
+    bool route_parameter_events(
+        const clap_input_events_t* events,
+        std::uint32_t frames_count) {
+        if (events == nullptr) {
+            return true;
+        }
+        if (events->size == nullptr || events->get == nullptr) {
+            return false;
+        }
+        const auto count = events->size(events);
+        for (std::uint32_t event_index = 0u; event_index < count; ++event_index) {
+            const clap_event_header_t* header = events->get(events, event_index);
+            if (header == nullptr || header->size < sizeof(clap_event_header_t)) {
+                return false;
+            }
+            if (frames_count != 0u && header->time >= frames_count) {
+                return false;
+            }
+            if (header->space_id != CLAP_CORE_EVENT_SPACE_ID) {
+                continue;
+            }
+            switch (header->type) {
+            case CLAP_EVENT_PARAM_VALUE: {
+                if (header->size < sizeof(clap_event_param_value_t)) {
+                    return false;
+                }
+                const auto* value_event = reinterpret_cast<const clap_event_param_value_t*>(header);
+                const auto parameter_index = parameter_index_for_id(value_event->param_id);
+                if (parameter_index < 0 || !std::isfinite(value_event->value)) {
+                    return false;
+                }
+                const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
+                if (value_event->value < spec.min_value || value_event->value > spec.max_value) {
+                    return false;
+                }
+                if (is_global_target(*value_event)) {
+                    parameter_values_[parameter_index] = value_event->value;
+                }
+                deliver_parameter_event(header);
+                break;
+            }
+            case CLAP_EVENT_PARAM_MOD: {
+                if (header->size < sizeof(clap_event_param_mod_t)) {
+                    return false;
+                }
+                const auto* mod_event = reinterpret_cast<const clap_event_param_mod_t*>(header);
+                if (parameter_index_for_id(mod_event->param_id) < 0 || !std::isfinite(mod_event->amount)) {
+                    return false;
+                }
+                // Modulation is intentionally transient: never assign mod_event->amount to
+                // parameter_values_[parameter_index]. The native event keeps its exact header->time.
+                deliver_parameter_event(header);
+                break;
+            }
+            case CLAP_EVENT_PARAM_GESTURE_BEGIN:
+            case CLAP_EVENT_PARAM_GESTURE_END: {
+                if (header->size < sizeof(clap_event_param_gesture_t)) {
+                    return false;
+                }
+                const auto* gesture = reinterpret_cast<const clap_event_param_gesture_t*>(header);
+                if (parameter_index_for_id(gesture->param_id) < 0) {
+                    return false;
+                }
+                deliver_parameter_event(header);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+        return true;
+    }
+
+    void deliver_parameter_event(const clap_event_header_t* header) {
+        if constexpr (requires(Processor& processor, const clap_event_header_t* event) {
+                          processor.on_parameter_event(event);
+                      }) {
+            processor_.on_parameter_event(header);
+        }
+    }
+
+    static bool write_all(
+        const clap_ostream_t* stream,
+        const void* data,
+        std::uint64_t size) {
+        if (stream == nullptr || stream->write == nullptr || (data == nullptr && size != 0u)) {
+            return false;
+        }
+        const auto* bytes = static_cast<const std::byte*>(data);
+        std::uint64_t offset = 0u;
+        while (offset < size) {
+            const auto written = stream->write(stream, bytes + offset, size - offset);
+            if (written <= 0 || static_cast<std::uint64_t>(written) > size - offset) {
+                return false;
+            }
+            offset += static_cast<std::uint64_t>(written);
+        }
+        return true;
+    }
+
+    static bool read_all(
+        const clap_istream_t* stream,
+        void* data,
+        std::uint64_t size) {
+        if (stream == nullptr || stream->read == nullptr || (data == nullptr && size != 0u)) {
+            return false;
+        }
+        auto* bytes = static_cast<std::byte*>(data);
+        std::uint64_t offset = 0u;
+        while (offset < size) {
+            const auto read = stream->read(stream, bytes + offset, size - offset);
+            if (read <= 0 || static_cast<std::uint64_t>(read) > size - offset) {
+                return false;
+            }
+            offset += static_cast<std::uint64_t>(read);
+        }
+        return true;
+    }
+
+    static bool skip_unknown(
+        const clap_istream_t* stream,
+        std::uint32_t size) {
+        std::array<std::byte, 256u> scratch{};
+        std::uint32_t remaining = size;
+        while (remaining != 0u) {
+            const auto chunk = std::min<std::uint32_t>(remaining, static_cast<std::uint32_t>(scratch.size()));
+            if (!read_all(stream, scratch.data(), chunk)) {
+                return false;
+            }
+            remaining -= chunk;
+        }
+        return true;
+    }
+
+    static bool CLAP_ABI state_save_plugin(
+        const clap_plugin_t* plugin,
+        const clap_ostream_t* stream) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || stream == nullptr || !generated_state_enabled) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        try {
+            constexpr auto record_bytes =
+                static_cast<std::uint32_t>(sizeof(StateRecordHeader) + sizeof(double));
+            const auto record_count = static_cast<std::uint32_t>(generated_parameter_specs.size());
+            if (record_count > kMaxStateBytes / record_bytes) {
+                return false;
+            }
+            const StateHeader header{
+                kStateMagic,
+                kStateSchemaVersion,
+                0u,
+                record_count,
+                record_count * record_bytes,
+            };
+            if (!write_all(stream, &header, sizeof(header))) {
+                return false;
+            }
+            for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {
+                const StateRecordHeader record{
+                    StateRecordKind::Parameter,
+                    0u,
+                    generated_parameter_specs[index].id,
+                    static_cast<std::uint32_t>(sizeof(double)),
+                };
+                if (!write_all(stream, &record, sizeof(record)) ||
+                    !write_all(stream, &instance->parameter_values_[index], sizeof(double))) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    static bool CLAP_ABI state_load_plugin(
+        const clap_plugin_t* plugin,
+        const clap_istream_t* stream) {
+        auto* instance = from_plugin(plugin);
+        if (instance == nullptr || stream == nullptr || !generated_state_enabled) {
+            return false;
+        }
+#ifndef NDEBUG
+        if (!instance->debug_on_main_thread()) {
+            return false;
+        }
+#endif
+        try {
+            StateHeader header{};
+            if (!read_all(stream, &header, sizeof(header)) || header.magic != kStateMagic ||
+                header.schema_version == 0u || header.schema_version > kStateSchemaVersion ||
+                header.payload_bytes > kMaxStateBytes ||
+                header.record_count > header.payload_bytes / sizeof(StateRecordHeader)) {
+                return false;
+            }
+
+            auto candidate_parameter_values = make_default_parameter_values();
+            std::uint32_t consumed = 0u;
+            for (std::uint32_t record_index = 0u; record_index < header.record_count; ++record_index) {
+                StateRecordHeader record{};
+                if (header.payload_bytes - consumed < sizeof(record) ||
+                    !read_all(stream, &record, sizeof(record))) {
+                    return false;
+                }
+                consumed += static_cast<std::uint32_t>(sizeof(record));
+                if (record.size > header.payload_bytes - consumed) {
+                    return false;
+                }
+
+                if (record.kind == StateRecordKind::Parameter) {
+                    const auto parameter_index = parameter_index_for_id(record.id);
+                    if (parameter_index >= 0) {
+                        if (record.size != sizeof(double)) {
+                            return false;
+                        }
+                        double value = 0.0;
+                        if (!read_all(stream, &value, sizeof(value)) || !std::isfinite(value)) {
+                            return false;
+                        }
+                        const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
+                        if (value < spec.min_value || value > spec.max_value) {
+                            return false;
+                        }
+                        candidate_parameter_values[static_cast<std::size_t>(parameter_index)] = value;
+                    } else if (!skip_unknown(stream, record.size)) {
+                        return false;
+                    }
+                } else {
+                    // StateRecordKind::Field and future unknown record kinds are skipped so newer
+                    // writers remain forward-compatible with this bounded reader.
+                    if (!skip_unknown(stream, record.size)) {
+                        return false;
+                    }
+                }
+                consumed += record.size;
+            }
+            if (consumed != header.payload_bytes) {
+                return false;
+            }
+            instance->commit_loaded_state(candidate_parameter_values);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    void commit_loaded_state(const ParameterValues& candidate_parameter_values) {
+        parameter_values_ = candidate_parameter_values;
+        if constexpr (requires(Processor& processor) { processor.on_state_loaded(); }) {
+            processor_.on_state_loaded();
+        }
+    }
+
+    inline static constinit const clap_plugin_params_t params_extension_{
+        .count = params_count_plugin,
+        .get_info = params_get_info_plugin,
+        .get_value = params_get_value_plugin,
+        .value_to_text = params_value_to_text_plugin,
+        .text_to_value = params_text_to_value_plugin,
+        .flush = params_flush_plugin,
+    };
+
+    inline static constinit const clap_plugin_state_t state_extension_{
+        .save = state_save_plugin,
+        .load = state_load_plugin,
+    };
+
     Processor processor_{};
     const clap_host_t* host_ = nullptr;
     clap_plugin_t plugin_{};
     LifecycleState state_ = LifecycleState::Created;
+    ParameterValues parameter_values_ = make_default_parameter_values();
 #ifndef NDEBUG
     const clap_host_thread_check_t* thread_check_ = nullptr;
 #endif
