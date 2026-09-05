@@ -169,7 +169,7 @@ fn generate(metadata_path: &Path, output_directory: &Path) -> Result<String, Str
     } else {
         current_directory.join(output_directory)
     };
-    let plan = codegen::render_for_output(&ir, &dependency_base, &absolute_output);
+    let plan = codegen::render_for_output_checked(&ir, &dependency_base, &absolute_output)?;
     codegen::write(&plan, output_directory)?;
     Ok(format!(
         "generated {}\nmanifest: {}",
@@ -307,6 +307,50 @@ mod tests {
         let capabilities = run(&arguments(&["inspect", "--format", "capabilities", &path_text]))
             .expect("capability report should succeed");
         assert!(capabilities.starts_with("capabilities {\n"), "{capabilities}");
+
+        fs::remove_dir_all(directory).expect("temporary directory should be removable");
+    }
+
+    #[test]
+    fn generation_requires_immutable_ids_for_exposed_parameters() {
+        let directory = temporary_directory();
+        fs::create_dir_all(&directory).expect("directory");
+        let path = directory.join("plugin.kdl");
+        let output = directory.join("generated");
+        let registry = directory.join("plugin.ids.kdl");
+        let source = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.ids\" name=\"IDs\" vendor=\"Example\" version=\"1\"\nprocessor class=\"IdsProcessor\"\nparameters { param id=\"gain\" name=\"Gain\" min=0.0 max=1.0 default=0.5 flags=\"automatable\" }\naudio-ports {}\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions { enable \"clap.params\" }\n";
+        fs::write(&path, source).expect("manifest");
+        let path_text = path.to_string_lossy().into_owned();
+        let output_text = output.to_string_lossy().into_owned();
+
+        let error = run(&arguments(&[
+            "generate",
+            "--metadata",
+            &path_text,
+            "--out",
+            &output_text,
+        ]))
+        .expect_err("production generation must reject a missing immutable ID");
+        assert!(error.contains("parameter `gain` has no immutable CLAP ID"), "{error}");
+
+        let registry_text = registry.to_string_lossy().into_owned();
+        run(&arguments(&[
+            "ids",
+            "allocate",
+            &registry_text,
+            "parameter",
+            "gain",
+        ]))
+        .expect("allocate immutable parameter ID");
+        run(&arguments(&[
+            "generate",
+            "--metadata",
+            &path_text,
+            "--out",
+            &output_text,
+        ]))
+        .expect("generation should succeed after allocating the ID");
+        assert!(output.join("clapgen_extensions.hpp").is_file());
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
     }
