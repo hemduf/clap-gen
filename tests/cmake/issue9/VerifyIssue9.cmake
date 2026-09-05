@@ -39,7 +39,8 @@ if(MODE STREQUAL "consumer")
       "EXPORT_NAME Runtime"
       "ClapGenTargets.cmake"
       "ClapGenConfigVersion.cmake"
-      "ClapGenFunctions.cmake")
+      "ClapGenFunctions.cmake"
+      "export(")
     require_contains("${package_source}" "${required}" "installed package contract")
   endforeach()
   foreach(required IN ITEMS "ClapGenTargets.cmake" "ClapGenFunctions.cmake" "check_required_components")
@@ -48,7 +49,11 @@ if(MODE STREQUAL "consumer")
   require_contains("${bootstrap_source}" "include(ClapGenPackage)" "root CMake bootstrap")
 
   set(prefix "${test_root}/prefix with spaces")
-  run_checked("${CMAKE_COMMAND}" --install "${CLAPGEN_BINARY_DIR}" --prefix "${prefix}")
+  set(install_command "${CMAKE_COMMAND}" --install "${CLAPGEN_BINARY_DIR}" --prefix "${prefix}")
+  if(DEFINED CLAPGEN_CONFIG AND NOT CLAPGEN_CONFIG STREQUAL "")
+    list(APPEND install_command --config "${CLAPGEN_CONFIG}")
+  endif()
+  run_checked(${install_command})
 
   set(consumer_source "${test_root}/consumer source")
   set(consumer_build "${test_root}/consumer build")
@@ -72,12 +77,15 @@ endif()
   )
 elseif(MODE STREQUAL "incremental")
   foreach(required IN ITEMS
-      "OUTPUT \"\${_clapgen_manifest}\""
+      "OUTPUT"
       "BYPRODUCTS"
-      "DEPENDS \"\${_clapgen_metadata}\""
-      "DEPFILE \"\${_clapgen_depfile}\""
-      "VERBATIM"
-      "\${CMAKE_CURRENT_BINARY_DIR}/clapgen/\${target}")
+      "DEPENDS"
+      "DEPFILE"
+      "clapgen.d"
+      "clapgen.manifest.kdl"
+      "clapgen/${target}"
+      "_clapgen_generator_dependency"
+      "VERBATIM")
     require_contains("${functions_source}" "${required}" "incremental generation contract")
   endforeach()
 
@@ -101,14 +109,8 @@ elseif(MODE STREQUAL "cross")
   set(project_build "${test_root}/cross build")
   file(MAKE_DIRECTORY "${project_source}")
   file(WRITE "${project_source}/plugin.kdl" "clapgen schema=\"1.0.0\"\n")
-  file(WRITE "${project_source}/CMakeLists.txt" "cmake_minimum_required(VERSION 3.25)\nproject(Issue9Cross LANGUAGES CXX)\nset(CLAPGEN_HOST_EXECUTABLE \"${CMAKE_COMMAND}\")\ninclude(\"${CLAPGEN_SOURCE_DIR}/cmake/ClapGenFunctions.cmake\")\nclapgen_add_plugin(cross_plugin METADATA \"\${CMAKE_CURRENT_SOURCE_DIR}/plugin.kdl\")\n")
-  file(WRITE "${project_source}/toolchain.cmake" "set(CMAKE_SYSTEM_NAME Generic)\n")
-  run_checked(
-    "${CMAKE_COMMAND}"
-    -S "${project_source}"
-    -B "${project_build}"
-    "-DCMAKE_TOOLCHAIN_FILE=${project_source}/toolchain.cmake"
-  )
+  file(WRITE "${project_source}/CMakeLists.txt" "cmake_minimum_required(VERSION 3.25)\nproject(Issue9Cross LANGUAGES CXX)\nset(CMAKE_CROSSCOMPILING TRUE)\nset(CLAPGEN_HOST_EXECUTABLE \"${CMAKE_COMMAND}\")\ninclude(\"${CLAPGEN_SOURCE_DIR}/cmake/ClapGenFunctions.cmake\")\nclapgen_add_plugin(cross_plugin METADATA \"\${CMAKE_CURRENT_SOURCE_DIR}/plugin.kdl\")\n")
+  run_checked("${CMAKE_COMMAND}" -S "${project_source}" -B "${project_build}")
 else()
   message(FATAL_ERROR "unknown MODE `${MODE}`")
 endif()
