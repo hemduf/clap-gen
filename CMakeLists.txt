@@ -32,6 +32,7 @@ set_target_properties(
     POSITION_INDEPENDENT_CODE ON
 )
 clapgen_enable_warnings(clapgen_runtime)
+include(ClapGenPackage)
 
 include(CTest)
 if(BUILD_TESTING)

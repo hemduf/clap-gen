@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+# Keep the exported runtime target and generation helper available from one package import.
+include("${CMAKE_CURRENT_LIST_DIR}/ClapGenTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/ClapGenFunctions.cmake")
+
+check_required_components(ClapGen)
