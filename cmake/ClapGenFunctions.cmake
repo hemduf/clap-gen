@@ -56,7 +56,7 @@ endfunction()
 function(clapgen_add_plugin target)
   set(options)
   set(one_value_args METADATA OUTPUT_DIR GENERATOR CLAP_INCLUDE_DIR)
-  set(multi_value_args SOURCES DEPENDS)
+  set(multi_value_args SOURCES DEPENDS LINK_LIBRARIES)
   cmake_parse_arguments(CLAPGEN "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
   if(CLAPGEN_UNPARSED_ARGUMENTS)
@@ -72,18 +72,35 @@ function(clapgen_add_plugin target)
     message(FATAL_ERROR "clapgen_add_plugin(${target}) requires METADATA <plugin.kdl>")
   endif()
 
-  get_filename_component(_clapgen_metadata "${CLAPGEN_METADATA}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+  get_filename_component(
+    _clapgen_metadata
+    "${CLAPGEN_METADATA}"
+    ABSOLUTE
+    BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
   if(NOT EXISTS "${_clapgen_metadata}")
     message(FATAL_ERROR "clapgen_add_plugin(${target}): metadata does not exist: ${_clapgen_metadata}")
   endif()
 
   if(CLAPGEN_OUTPUT_DIR)
-    get_filename_component(_clapgen_output_dir "${CLAPGEN_OUTPUT_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+    get_filename_component(
+      _clapgen_output_dir
+      "${CLAPGEN_OUTPUT_DIR}"
+      ABSOLUTE
+      BASE_DIR "${CMAKE_CURRENT_BINARY_DIR}"
+    )
   else()
     set(_clapgen_output_dir "${CMAKE_CURRENT_BINARY_DIR}/clapgen/${target}")
   endif()
 
   _clapgen_resolve_generator(_clapgen_generator "${CLAPGEN_GENERATOR}")
+  set(_clapgen_generator_dependency)
+  if(NOT CLAPGEN_GENERATOR AND NOT CMAKE_CROSSCOMPILING AND TARGET ClapGen::clapgen)
+    get_target_property(_clapgen_generator_is_imported ClapGen::clapgen IMPORTED)
+    if(NOT _clapgen_generator_is_imported)
+      set(_clapgen_generator_dependency ClapGen::clapgen)
+    endif()
+  endif()
 
   set(_clapgen_depfile "${_clapgen_output_dir}/clapgen.d")
   set(_clapgen_manifest "${_clapgen_output_dir}/clapgen.manifest.kdl")
@@ -98,8 +115,6 @@ function(clapgen_add_plugin target)
   set(_clapgen_metadata_header "${_clapgen_output_dir}/clapgen_metadata.hpp")
   set(_clapgen_processor "${_clapgen_output_dir}/clapgen_processor.hpp")
   set(_clapgen_resources "${_clapgen_output_dir}/clapgen_resources.hpp")
-
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_clapgen_metadata}")
 
   add_custom_command(
     OUTPUT "${_clapgen_manifest}"
@@ -116,8 +131,14 @@ function(clapgen_add_plugin target)
       "${_clapgen_metadata_header}"
       "${_clapgen_processor}"
       "${_clapgen_resources}"
-    COMMAND "${_clapgen_generator}" generate --metadata "${_clapgen_metadata}" --out "${_clapgen_output_dir}"
-    DEPENDS "${_clapgen_metadata}" ${CLAPGEN_DEPENDS}
+    COMMAND
+      "${_clapgen_generator}" generate
+      --metadata "${_clapgen_metadata}"
+      --out "${_clapgen_output_dir}"
+    DEPENDS
+      "${_clapgen_metadata}"
+      ${CLAPGEN_DEPENDS}
+      ${_clapgen_generator_dependency}
     DEPFILE "${_clapgen_depfile}"
     COMMENT "Generating CLAP sources for ${target}"
     VERBATIM
@@ -153,6 +174,9 @@ function(clapgen_add_plugin target)
 
   if(TARGET ClapGen::Runtime)
     target_link_libraries("${target}" PRIVATE ClapGen::Runtime)
+  endif()
+  if(CLAPGEN_LINK_LIBRARIES)
+    target_link_libraries("${target}" PRIVATE ${CLAPGEN_LINK_LIBRARIES})
   endif()
 
   set_target_properties(
