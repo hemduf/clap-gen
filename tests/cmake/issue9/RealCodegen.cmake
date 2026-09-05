@@ -105,3 +105,16 @@ if(NINJA_EXECUTABLE)
   run_checked("${CMAKE_COMMAND}" -G Ninja -S "${project_source}" -B "${ninja_build}")
   run_checked("${CMAKE_COMMAND}" --build "${ninja_build}" --target first_clapgen_codegen)
 endif()
+
+if(CMAKE_HOST_APPLE)
+  set(xcode_build "${test_root}/xcode build")
+  run_checked("${CMAKE_COMMAND}" -G Xcode -S "${project_source}" -B "${xcode_build}")
+  set(xcode_config Debug)
+  if(DEFINED CLAPGEN_CONFIG AND NOT CLAPGEN_CONFIG STREQUAL "")
+    set(xcode_config "${CLAPGEN_CONFIG}")
+  endif()
+  run_checked(
+    "${CMAKE_COMMAND}" --build "${xcode_build}" --config "${xcode_config}"
+    --target first_clapgen_codegen
+  )
+endif()
