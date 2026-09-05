@@ -24,8 +24,8 @@ set(_clapgen_escaped_space "__CLAPGEN_DEPFILE_ESCAPED_SPACE__")
 string(REPLACE "\\ " "${_clapgen_escaped_space}" _clapgen_depfile "${_clapgen_depfile}")
 string(REPLACE " " " ${_clapgen_prefix}/" _clapgen_depfile "${_clapgen_depfile}")
 string(REPLACE "${_clapgen_escaped_space}" "\\ " _clapgen_depfile "${_clapgen_depfile}")
-string(REGEX REPLACE
-  "^clapgen\\.manifest\\.kdl:"
+string(REPLACE
+  "clapgen.manifest.kdl:"
   "${_clapgen_prefix}/clapgen.manifest.kdl:"
   _clapgen_depfile
   "${_clapgen_depfile}"
