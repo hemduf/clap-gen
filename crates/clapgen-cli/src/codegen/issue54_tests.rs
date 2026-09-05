@@ -5,7 +5,7 @@ use crate::metadata::parse_metadata;
 
 use super::{GenerationPlan, OUTPUT_NAMES, render};
 
-const REPRESENTATIVE_SOURCE: &str = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.issue54\" name=\"Issue54\" vendor=\"Example\" version=\"1.0.0\" features=\"instrument,synthesizer\"\nprocessor class=\"Issue54Processor\"\nparameters { param \"Gain\" id=\"gain\" min=0 max=1 default=0.5 flags=\"automatable\"; param \"Tone\" id=\"tone\" min=20 max=20000 default=1000 flags=\"automatable\" }\naudio-ports { input \"Input\" id=\"input\" channels=2 flags=\"main\"; output \"Output\" id=\"output\" channels=2 flags=\"main\" }\nnote-ports { input \"Notes\" id=\"notes\" dialects=\"clap,midi\" preferred=\"clap\" }\nstate { field \"mode\" type=\"integer\" default=0 tag=\"mode\" }\ngui {}\npresets {}\nfactories {}\nextensions { enable \"clap.params\" }\n";
+const REPRESENTATIVE_SOURCE: &str = "clapgen schema=\"1.0.0\"\nplugin id=\"com.example.issue54\" name=\"Issue54\" vendor=\"Example\" version=\"1.0.0\"\nprocessor class=\"Issue54Processor\"\nparameters { param \"Gain\" id=\"gain\" min=0 max=1 default=0.5; param \"Tone\" id=\"tone\" min=20 max=20000 default=1000 }\naudio-ports { input \"Input\" id=\"input\" channels=2; output \"Output\" id=\"output\" channels=2 }\nnote-ports {}\nstate {}\ngui {}\npresets {}\nfactories {}\nextensions {}\n";
 
 fn ir_at(path: &Path) -> crate::ir::CanonicalIr {
     let metadata = parse_metadata(path, REPRESENTATIVE_SOURCE).expect("metadata should parse");
