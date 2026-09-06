@@ -137,7 +137,10 @@ fn issue10_routes_native_param_events_and_keeps_modulation_separate_from_base_va
     }
 
     assert!(
-        backend.contains("parameter_values_[parameter_index] = value_event->value"),
+        backend.contains("parameter_values_[parameter_index] = value_event->value")
+            || backend.contains(
+                "parameter_values_[static_cast<std::size_t>(parameter_index)] = value_event->value"
+            ),
         "automation must update the base value:\n{backend}"
     );
     assert!(
@@ -209,6 +212,25 @@ fn issue10_state_load_rescans_host_values_and_stale_parameter_events_are_ignored
         "cache_host_params",
         "notify_host_parameter_values_changed",
         "continue; // unknown/stale parameter id",
+    ] {
+        assert!(backend.contains(required), "missing `{required}`:\n{backend}");
+    }
+}
+
+#[test]
+fn issue10_parameter_conversion_preserves_units_and_stepped_domain() {
+    let plan = render_source();
+    let extensions = generated_text(&plan, "clapgen_extensions.hpp");
+    let backend = generated_text(&plan, "clapgen_instance_backend.hpp");
+
+    for required in ["const char* unit", "std::int64_t steps", "\"x\"", "3"] {
+        assert!(extensions.contains(required), "missing `{required}`:\n{extensions}");
+    }
+    for required in [
+        "parameter_value_is_valid",
+        "parameter_text_suffix_matches",
+        "spec.unit",
+        "spec.steps",
     ] {
         assert!(backend.contains(required), "missing `{required}`:\n{backend}");
     }
