@@ -32,6 +32,10 @@ pub(crate) fn render_for_output_checked(
     Ok(render_for_output(ir, dependency_base, output_directory))
 }
 
+fn has_flag(parameter: &crate::ir::ParameterIr, flag: &str) -> bool {
+    parameter.flags.iter().any(|candidate| candidate == flag)
+}
+
 fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
     for parameter in ir.parameters() {
         if !parameter.min.is_finite()
@@ -44,9 +48,28 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
             ));
         }
 
-        let stepped = parameter.flags.iter().any(|flag| flag == "stepped");
-        let enumeration = parameter.flags.iter().any(|flag| flag == "enum");
-        let bypass = parameter.flags.iter().any(|flag| flag == "bypass");
+        let stepped = has_flag(parameter, "stepped");
+        let enumeration = has_flag(parameter, "enum");
+        let bypass = has_flag(parameter, "bypass");
+        let readonly = has_flag(parameter, "readonly");
+        let automatable = has_flag(parameter, "automatable");
+        let modulatable = has_flag(parameter, "modulatable");
+        let poly_automatable = [
+            "automatable-per-note-id",
+            "automatable-per-key",
+            "automatable-per-channel",
+            "automatable-per-port",
+        ]
+        .iter()
+        .any(|flag| has_flag(parameter, flag));
+        let poly_modulatable = [
+            "modulatable-per-note-id",
+            "modulatable-per-key",
+            "modulatable-per-channel",
+            "modulatable-per-port",
+        ]
+        .iter()
+        .any(|flag| has_flag(parameter, flag));
 
         if enumeration && !stepped {
             return Err(format!(
@@ -54,11 +77,27 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
                 parameter.id
             ));
         }
-        if bypass
-            && (!stepped || parameter.min != 0.0 || parameter.max != 1.0)
-        {
+        if bypass && (!stepped || parameter.min != 0.0 || parameter.max != 1.0) {
             return Err(format!(
                 "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
+                parameter.id
+            ));
+        }
+        if poly_automatable && !automatable {
+            return Err(format!(
+                "parameter `{}` declares per-* automatable flags without the base automatable capability",
+                parameter.id
+            ));
+        }
+        if poly_modulatable && !modulatable {
+            return Err(format!(
+                "parameter `{}` declares per-* modulatable flags without the base modulatable capability",
+                parameter.id
+            ));
+        }
+        if readonly && (automatable || modulatable || poly_automatable || poly_modulatable) {
+            return Err(format!(
+                "parameter `{}` is readonly but also automatable or modulatable",
                 parameter.id
             ));
         }
