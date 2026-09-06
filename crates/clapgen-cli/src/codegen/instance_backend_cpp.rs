@@ -425,6 +425,55 @@ private:
         return source[length] == '\0';
     }
 
+    static bool parameter_value_is_valid(
+        const GeneratedParameterSpec& spec,
+        double value) noexcept {
+        if (!std::isfinite(value) || value < spec.min_value || value > spec.max_value) {
+            return false;
+        }
+        if ((spec.flags & CLAP_PARAM_IS_STEPPED) == 0u) {
+            return true;
+        }
+
+        double snapped = std::round(value);
+        if (spec.steps > 1 && spec.max_value > spec.min_value) {
+            const double step =
+                (spec.max_value - spec.min_value) / static_cast<double>(spec.steps - 1);
+            const double step_index = std::round((value - spec.min_value) / step);
+            snapped = spec.min_value + step_index * step;
+        }
+        const double tolerance = 1.0e-9 * std::max(1.0, std::abs(value));
+        return std::abs(value - snapped) <= tolerance;
+    }
+
+    static bool is_ascii_space(char value) noexcept {
+        return value == ' ' || value == '\t' || value == '\r' || value == '\n';
+    }
+
+    static bool parameter_text_suffix_matches(
+        const char* begin,
+        const char* end,
+        const char* unit) noexcept {
+        while (begin != end && is_ascii_space(*begin)) {
+            ++begin;
+        }
+        if (unit == nullptr || unit[0] == '\0') {
+            return begin == end;
+        }
+        const char* unit_cursor = unit;
+        while (begin != end && *unit_cursor != '\0' && *begin == *unit_cursor) {
+            ++begin;
+            ++unit_cursor;
+        }
+        if (*unit_cursor != '\0') {
+            return false;
+        }
+        while (begin != end && is_ascii_space(*begin)) {
+            ++begin;
+        }
+        return begin == end;
+    }
+
     static std::uint32_t CLAP_ABI params_count_plugin(const clap_plugin_t* plugin) {
         auto* instance = from_plugin(plugin);
         if (instance == nullptr || !generated_params_enabled) {
@@ -496,8 +545,7 @@ private:
         std::uint32_t out_buffer_capacity) {
         auto* instance = from_plugin(plugin);
         if (instance == nullptr || out_buffer == nullptr || out_buffer_capacity == 0u ||
-            !generated_params_enabled || parameter_index_for_id(param_id) < 0 ||
-            !std::isfinite(value)) {
+            !generated_params_enabled) {
             return false;
         }
 #ifndef NDEBUG
@@ -505,6 +553,15 @@ private:
             return false;
         }
 #endif
+        const auto index = parameter_index_for_id(param_id);
+        if (index < 0) {
+            return false;
+        }
+        const auto& spec = generated_parameter_specs[static_cast<std::size_t>(index)];
+        if (!parameter_value_is_valid(spec, value)) {
+            return false;
+        }
+
         auto* begin = out_buffer;
         auto* end = out_buffer + out_buffer_capacity - 1u;
         const auto result = std::to_chars(begin, end, value, std::chars_format::general);
@@ -512,7 +569,23 @@ private:
             out_buffer[0] = '\0';
             return false;
         }
-        *result.ptr = '\0';
+        auto* cursor = result.ptr;
+        if (spec.unit != nullptr && spec.unit[0] != '\0') {
+            if (cursor == end) {
+                out_buffer[0] = '\0';
+                return false;
+            }
+            *cursor++ = ' ';
+            const char* unit = spec.unit;
+            while (*unit != '\0') {
+                if (cursor == end) {
+                    out_buffer[0] = '\0';
+                    return false;
+                }
+                *cursor++ = *unit++;
+            }
+        }
+        *cursor = '\0';
         return true;
     }
 
@@ -535,14 +608,13 @@ private:
         if (index < 0) {
             return false;
         }
+        const auto& spec = generated_parameter_specs[static_cast<std::size_t>(index)];
         const char* end = param_value_text + std::strlen(param_value_text);
         double value = 0.0;
         const auto result = std::from_chars(param_value_text, end, value, std::chars_format::general);
-        if (result.ec != std::errc{} || result.ptr != end || !std::isfinite(value)) {
-            return false;
-        }
-        const auto& spec = generated_parameter_specs[static_cast<std::size_t>(index)];
-        if (value < spec.min_value || value > spec.max_value) {
+        if (result.ec != std::errc{} ||
+            !parameter_text_suffix_matches(result.ptr, end, spec.unit) ||
+            !parameter_value_is_valid(spec, value)) {
             return false;
         }
         *out_value = value;
@@ -604,11 +676,8 @@ private:
                 if (parameter_index < 0) {
                     continue; // unknown/stale parameter id
                 }
-                if (!std::isfinite(value_event->value)) {
-                    continue;
-                }
                 const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
-                if (value_event->value < spec.min_value || value_event->value > spec.max_value) {
+                if (!parameter_value_is_valid(spec, value_event->value)) {
                     continue;
                 }
                 if (is_global_target(*value_event)) {
@@ -914,11 +983,11 @@ private:
                             return false;
                         }
                         double value = 0.0;
-                        if (!read_f64_le(stream, value) || !std::isfinite(value)) {
+                        if (!read_f64_le(stream, value)) {
                             return false;
                         }
                         const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
-                        if (value < spec.min_value || value > spec.max_value) {
+                        if (!parameter_value_is_valid(spec, value)) {
                             return false;
                         }
                         candidate_parameter_values[static_cast<std::size_t>(parameter_index)] = value;
