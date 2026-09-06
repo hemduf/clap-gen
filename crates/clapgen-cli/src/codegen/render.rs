@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -34,6 +35,17 @@ pub(crate) fn render_for_output_checked(
 
 fn has_flag(parameter: &crate::ir::ParameterIr, flag: &str) -> bool {
     parameter.flags.iter().any(|candidate| candidate == flag)
+}
+
+fn exactly_equal(left: f64, right: f64) -> bool {
+    left.partial_cmp(&right) == Some(Ordering::Equal)
+}
+
+fn integer_plain_value(value: f64) -> Option<i128> {
+    if !value.is_finite() || !exactly_equal(value.fract(), 0.0) {
+        return None;
+    }
+    format!("{value:.0}").parse::<i128>().ok()
 }
 
 fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
@@ -86,7 +98,11 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
                 parameter.id
             ));
         }
-        if bypass && (!stepped || parameter.min != 0.0 || parameter.max != 1.0) {
+        if bypass
+            && (!stepped
+                || !exactly_equal(parameter.min, 0.0)
+                || !exactly_equal(parameter.max, 1.0))
+        {
             return Err(format!(
                 "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
                 parameter.id
@@ -111,17 +127,26 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
             ));
         }
         if stepped {
-            if parameter.min.fract() != 0.0
-                || parameter.max.fract() != 0.0
-                || parameter.default.fract() != 0.0
-            {
+            let (Some(minimum), Some(maximum), Some(_default)) = (
+                integer_plain_value(parameter.min),
+                integer_plain_value(parameter.max),
+                integer_plain_value(parameter.default),
+            ) else {
                 return Err(format!(
-                    "parameter `{}` is stepped but its min/max/default are not integer plain values",
+                    "parameter `{}` is stepped but its min/max/default are not representable integer plain values",
                     parameter.id
                 ));
-            }
+            };
             if let Some(steps) = parameter.steps {
-                let expected = (parameter.max - parameter.min) as i128 + 1;
+                let expected = maximum
+                    .checked_sub(minimum)
+                    .and_then(|span| span.checked_add(1))
+                    .ok_or_else(|| {
+                        format!(
+                            "parameter `{}` stepped domain is too large to represent safely",
+                            parameter.id
+                        )
+                    })?;
                 if steps != expected {
                     return Err(format!(
                         "parameter `{}` declares {steps} steps but its integer CLAP domain contains {expected} values",

@@ -85,8 +85,16 @@ struct GeneratedStateFieldSpec {\n\
 };\n\n",
     );
 
+    append_parameter_specs(&mut output, ir, parameters);
+    append_state_field_specs(&mut output, ir, &state_fields);
+    append_parameter_storage(&mut output, params_enabled, state_enabled);
+    output.push('\n');
+    output
+}
+
+fn append_parameter_specs(output: &mut String, ir: &CanonicalIr, parameters: &[ParameterIr]) {
     writeln!(
-        &mut output,
+        output,
         "inline constexpr std::array<GeneratedParameterSpec, {}> generated_parameter_specs{{{{",
         parameters.len()
     )
@@ -96,19 +104,31 @@ struct GeneratedStateFieldSpec {\n\
         let flags = parameter_flags(parameter);
         let name = cpp_literal::utf8_c_string(&parameter.name);
         let unit = cpp_literal::utf8_c_string(parameter.unit.as_deref().unwrap_or(""));
-        let steps =
-            parameter.steps.map(|value| value.clamp(0, i64::MAX as i128) as i64).unwrap_or(0);
+        let steps = parameter_steps(parameter);
         writeln!(
-            &mut output,
+            output,
             "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {unit}, {steps}, {}, {}, {}}},",
             parameter.min, parameter.max, parameter.default
         )
         .expect("writing to String cannot fail");
     }
     output.push_str("}};\n\n");
+}
 
+fn parameter_steps(parameter: &ParameterIr) -> i64 {
+    parameter.steps.map_or(0, |value| {
+        i64::try_from(value.clamp(0, i128::from(i64::MAX)))
+            .expect("clamped parameter step count must fit in i64")
+    })
+}
+
+fn append_state_field_specs(
+    output: &mut String,
+    ir: &CanonicalIr,
+    state_fields: &[&StateFieldIr],
+) {
     writeln!(
-        &mut output,
+        output,
         "inline constexpr std::array<GeneratedStateFieldSpec, {}> generated_state_field_specs{{{{",
         state_fields.len()
     )
@@ -121,13 +141,16 @@ struct GeneratedStateFieldSpec {\n\
         let default_value = cpp_literal::utf8_c_string(field.default.as_deref().unwrap_or(""));
         let has_default = if field.default.is_some() { "true" } else { "false" };
         writeln!(
-            &mut output,
+            output,
             "    GeneratedStateFieldSpec{{std::uint32_t{{{id}u}}, {name}, {field_type}, {tag}, {default_value}, {has_default}}},"
         )
         .expect("writing to String cannot fail");
     }
+}
+
+fn append_parameter_storage(output: &mut String, params_enabled: bool, state_enabled: bool) {
     writeln!(
-        &mut output,
+        output,
         "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\n\
 #if defined(__wasm__) && !defined(__wasm_atomics__)\n\
 // WCLAP/WASI currently uses a single-threaded realtime contract when wasm atomics are absent.\n\
@@ -145,7 +168,7 @@ inline double load_parameter_value(const GeneratedParameterStorage& storage) noe
 }}\n\n\
 inline void store_parameter_value(GeneratedParameterStorage& storage, double value) noexcept {{\n\
     storage.store(std::bit_cast<std::uint64_t>(value), std::memory_order_relaxed);\n\
-}}\n\
+}}\n\n\
 #endif\n\n\
 class GeneratedParameterValues final {{\n\
 public:\n\
@@ -191,8 +214,6 @@ inline GeneratedParameterValues make_default_parameter_values() noexcept {{\n\
         if state_enabled { "true" } else { "false" }
     )
     .expect("writing to String cannot fail");
-    output.push('\n');
-    output
 }
 
 fn parameter_numeric_id(ir: &CanonicalIr, parameter: &ParameterIr) -> u32 {

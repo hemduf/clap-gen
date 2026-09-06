@@ -244,16 +244,17 @@ int main() {
     assert(params->count(plugin) == 3u);
 
     clap_param_info_t gain_info{};
-    clap_param_info_t mode_info{};
     clap_param_info_t meter_info{};
+    clap_param_info_t mode_info{};
     assert(params->get_info(plugin, 0u, &gain_info));
-    assert(params->get_info(plugin, 1u, &mode_info));
-    assert(params->get_info(plugin, 2u, &meter_info));
+    assert(params->get_info(plugin, 1u, &meter_info));
+    assert(params->get_info(plugin, 2u, &mode_info));
     assert(gain_info.id == 1u);
-    assert(mode_info.id == 2u);
     assert(meter_info.id == 4u);
+    assert(mode_info.id == 2u);
     assert(std::strcmp(gain_info.name, "Gain") == 0);
     assert(std::strcmp(meter_info.name, "Meter") == 0);
+    assert(std::strcmp(mode_info.name, "Mode") == 0);
     assert((gain_info.flags & CLAP_PARAM_IS_AUTOMATABLE) != 0u);
     assert((gain_info.flags & CLAP_PARAM_IS_MODULATABLE) != 0u);
     assert((mode_info.flags & CLAP_PARAM_IS_STEPPED) != 0u);
