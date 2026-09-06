@@ -8,6 +8,7 @@ const HEADER_BODY: &str = r#"
 #include <clap/ext/state.h>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
@@ -43,9 +44,13 @@ enum class StateRecordKind : std::uint16_t {
     Field = 2u,
 };
 
-inline constexpr std::uint32_t kStateMagic = 0x43475031u; // "CGP1"
+// The persisted state wire format is explicitly little-endian and never serializes
+// native C++ object representation or padding bytes.
+inline constexpr std::uint32_t kStateMagic = 0x31504743u; // "CGP1" as little-endian bytes
 inline constexpr std::uint16_t kStateSchemaVersion = 1u;
 inline constexpr std::uint32_t kMaxStateBytes = 1024u * 1024u;
+inline constexpr std::uint32_t kStateHeaderBytes = 16u;
+inline constexpr std::uint32_t kStateRecordHeaderBytes = 12u;
 
 struct StateHeader {
     std::uint32_t magic;
@@ -61,9 +66,6 @@ struct StateRecordHeader {
     clap_id id;
     std::uint32_t size;
 };
-
-static_assert(sizeof(StateHeader) == 16u);
-static_assert(sizeof(StateRecordHeader) == 12u);
 
 template <NativeProcessor Processor>
 class PluginInstance final {
@@ -128,6 +130,34 @@ private:
         return true;
     }
 
+    bool cache_host_params() noexcept {
+        host_params_ = nullptr;
+        if constexpr (!generated_params_enabled) {
+            return true;
+        }
+        if (host_ == nullptr || host_->get_extension == nullptr) {
+            return true;
+        }
+        try {
+            host_params_ = static_cast<const clap_host_params_t*>(
+                host_->get_extension(host_, CLAP_EXT_PARAMS));
+            return true;
+        } catch (...) {
+            host_params_ = nullptr;
+            return false;
+        }
+    }
+
+    void notify_host_parameter_values_changed() const noexcept {
+        if (host_params_ == nullptr || host_params_->rescan == nullptr || host_ == nullptr) {
+            return;
+        }
+        try {
+            host_params_->rescan(host_, CLAP_PARAM_RESCAN_VALUES);
+        } catch (...) {
+        }
+    }
+
 #ifndef NDEBUG
     bool cache_debug_thread_check() noexcept {
         thread_check_ = nullptr;
@@ -177,6 +207,10 @@ private:
             return false;
         }
 #endif
+        if (!instance->cache_host_params()) {
+            instance->state_ = LifecycleState::InitFailed;
+            return false;
+        }
         try {
             if (instance->processor_.init()) {
                 instance->state_ = LifecycleState::Initialized;
@@ -567,15 +601,18 @@ private:
                 }
                 const auto* value_event = reinterpret_cast<const clap_event_param_value_t*>(header);
                 const auto parameter_index = parameter_index_for_id(value_event->param_id);
-                if (parameter_index < 0 || !std::isfinite(value_event->value)) {
-                    return false;
+                if (parameter_index < 0) {
+                    continue; // unknown/stale parameter id
+                }
+                if (!std::isfinite(value_event->value)) {
+                    continue;
                 }
                 const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
                 if (value_event->value < spec.min_value || value_event->value > spec.max_value) {
-                    return false;
+                    continue;
                 }
                 if (is_global_target(*value_event)) {
-                    parameter_values_[parameter_index] = value_event->value;
+                    parameter_values_[static_cast<std::size_t>(parameter_index)] = value_event->value;
                 }
                 deliver_parameter_event(header);
                 break;
@@ -585,8 +622,11 @@ private:
                     return false;
                 }
                 const auto* mod_event = reinterpret_cast<const clap_event_param_mod_t*>(header);
-                if (parameter_index_for_id(mod_event->param_id) < 0 || !std::isfinite(mod_event->amount)) {
-                    return false;
+                if (parameter_index_for_id(mod_event->param_id) < 0) {
+                    continue; // unknown/stale parameter id
+                }
+                if (!std::isfinite(mod_event->amount)) {
+                    continue;
                 }
                 // Modulation is intentionally transient: never assign mod_event->amount to
                 // parameter_values_[parameter_index]. The native event keeps its exact header->time.
@@ -600,7 +640,7 @@ private:
                 }
                 const auto* gesture = reinterpret_cast<const clap_event_param_gesture_t*>(header);
                 if (parameter_index_for_id(gesture->param_id) < 0) {
-                    return false;
+                    continue; // unknown/stale parameter id
                 }
                 deliver_parameter_event(header);
                 break;
@@ -658,6 +698,120 @@ private:
         return true;
     }
 
+    static bool write_u16_le(const clap_ostream_t* stream, std::uint16_t value) {
+        const std::array<std::byte, 2u> bytes{
+            std::byte{static_cast<std::uint8_t>(value)},
+            std::byte{static_cast<std::uint8_t>(value >> 8u)},
+        };
+        return write_all(stream, bytes.data(), bytes.size());
+    }
+
+    static bool write_u32_le(const clap_ostream_t* stream, std::uint32_t value) {
+        const std::array<std::byte, 4u> bytes{
+            std::byte{static_cast<std::uint8_t>(value)},
+            std::byte{static_cast<std::uint8_t>(value >> 8u)},
+            std::byte{static_cast<std::uint8_t>(value >> 16u)},
+            std::byte{static_cast<std::uint8_t>(value >> 24u)},
+        };
+        return write_all(stream, bytes.data(), bytes.size());
+    }
+
+    static bool write_u64_le(const clap_ostream_t* stream, std::uint64_t value) {
+        std::array<std::byte, 8u> bytes{};
+        for (std::uint32_t index = 0u; index < bytes.size(); ++index) {
+            bytes[index] = std::byte{static_cast<std::uint8_t>(value >> (index * 8u))};
+        }
+        return write_all(stream, bytes.data(), bytes.size());
+    }
+
+    static bool read_u16_le(const clap_istream_t* stream, std::uint16_t& value) {
+        std::array<std::byte, 2u> bytes{};
+        if (!read_all(stream, bytes.data(), bytes.size())) {
+            return false;
+        }
+        value = static_cast<std::uint16_t>(std::to_integer<std::uint8_t>(bytes[0])) |
+                (static_cast<std::uint16_t>(std::to_integer<std::uint8_t>(bytes[1])) << 8u);
+        return true;
+    }
+
+    static bool read_u32_le(const clap_istream_t* stream, std::uint32_t& value) {
+        std::array<std::byte, 4u> bytes{};
+        if (!read_all(stream, bytes.data(), bytes.size())) {
+            return false;
+        }
+        value = 0u;
+        for (std::uint32_t index = 0u; index < bytes.size(); ++index) {
+            value |= static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[index]))
+                     << (index * 8u);
+        }
+        return true;
+    }
+
+    static bool read_u64_le(const clap_istream_t* stream, std::uint64_t& value) {
+        std::array<std::byte, 8u> bytes{};
+        if (!read_all(stream, bytes.data(), bytes.size())) {
+            return false;
+        }
+        value = 0u;
+        for (std::uint32_t index = 0u; index < bytes.size(); ++index) {
+            value |= static_cast<std::uint64_t>(std::to_integer<std::uint8_t>(bytes[index]))
+                     << (index * 8u);
+        }
+        return true;
+    }
+
+    static bool write_f64_le(const clap_ostream_t* stream, double value) {
+        static_assert(sizeof(double) == sizeof(std::uint64_t));
+        return write_u64_le(stream, std::bit_cast<std::uint64_t>(value));
+    }
+
+    static bool read_f64_le(const clap_istream_t* stream, double& value) {
+        static_assert(sizeof(double) == sizeof(std::uint64_t));
+        std::uint64_t bits = 0u;
+        if (!read_u64_le(stream, bits)) {
+            return false;
+        }
+        value = std::bit_cast<double>(bits);
+        return true;
+    }
+
+    static bool write_state_header(const clap_ostream_t* stream, const StateHeader& header) {
+        return write_u32_le(stream, header.magic) &&
+               write_u16_le(stream, header.schema_version) &&
+               write_u16_le(stream, header.reserved) &&
+               write_u32_le(stream, header.record_count) &&
+               write_u32_le(stream, header.payload_bytes);
+    }
+
+    static bool read_state_header(const clap_istream_t* stream, StateHeader& header) {
+        return read_u32_le(stream, header.magic) &&
+               read_u16_le(stream, header.schema_version) &&
+               read_u16_le(stream, header.reserved) &&
+               read_u32_le(stream, header.record_count) &&
+               read_u32_le(stream, header.payload_bytes);
+    }
+
+    static bool write_state_record_header(
+        const clap_ostream_t* stream,
+        const StateRecordHeader& record) {
+        return write_u16_le(stream, static_cast<std::uint16_t>(record.kind)) &&
+               write_u16_le(stream, record.reserved) &&
+               write_u32_le(stream, record.id) &&
+               write_u32_le(stream, record.size);
+    }
+
+    static bool read_state_record_header(
+        const clap_istream_t* stream,
+        StateRecordHeader& record) {
+        std::uint16_t kind = 0u;
+        if (!read_u16_le(stream, kind) || !read_u16_le(stream, record.reserved) ||
+            !read_u32_le(stream, record.id) || !read_u32_le(stream, record.size)) {
+            return false;
+        }
+        record.kind = static_cast<StateRecordKind>(kind);
+        return true;
+    }
+
     static bool skip_unknown(
         const clap_istream_t* stream,
         std::uint32_t size) {
@@ -686,8 +840,7 @@ private:
         }
 #endif
         try {
-            constexpr auto record_bytes =
-                static_cast<std::uint32_t>(sizeof(StateRecordHeader) + sizeof(double));
+            constexpr auto record_bytes = kStateRecordHeaderBytes + 8u;
             const auto record_count = static_cast<std::uint32_t>(generated_parameter_specs.size());
             if (record_count > kMaxStateBytes / record_bytes) {
                 return false;
@@ -699,7 +852,7 @@ private:
                 record_count,
                 record_count * record_bytes,
             };
-            if (!write_all(stream, &header, sizeof(header))) {
+            if (!write_state_header(stream, header)) {
                 return false;
             }
             for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {
@@ -707,10 +860,10 @@ private:
                     StateRecordKind::Parameter,
                     0u,
                     generated_parameter_specs[index].id,
-                    static_cast<std::uint32_t>(sizeof(double)),
+                    8u,
                 };
-                if (!write_all(stream, &record, sizeof(record)) ||
-                    !write_all(stream, &instance->parameter_values_[index], sizeof(double))) {
+                if (!write_state_record_header(stream, record) ||
+                    !write_f64_le(stream, instance->parameter_values_[index])) {
                     return false;
                 }
             }
@@ -734,10 +887,10 @@ private:
 #endif
         try {
             StateHeader header{};
-            if (!read_all(stream, &header, sizeof(header)) || header.magic != kStateMagic ||
+            if (!read_state_header(stream, header) || header.magic != kStateMagic ||
                 header.schema_version == 0u || header.schema_version > kStateSchemaVersion ||
                 header.payload_bytes > kMaxStateBytes ||
-                header.record_count > header.payload_bytes / sizeof(StateRecordHeader)) {
+                header.record_count > header.payload_bytes / kStateRecordHeaderBytes) {
                 return false;
             }
 
@@ -745,11 +898,11 @@ private:
             std::uint32_t consumed = 0u;
             for (std::uint32_t record_index = 0u; record_index < header.record_count; ++record_index) {
                 StateRecordHeader record{};
-                if (header.payload_bytes - consumed < sizeof(record) ||
-                    !read_all(stream, &record, sizeof(record))) {
+                if (header.payload_bytes - consumed < kStateRecordHeaderBytes ||
+                    !read_state_record_header(stream, record)) {
                     return false;
                 }
-                consumed += static_cast<std::uint32_t>(sizeof(record));
+                consumed += kStateRecordHeaderBytes;
                 if (record.size > header.payload_bytes - consumed) {
                     return false;
                 }
@@ -757,11 +910,11 @@ private:
                 if (record.kind == StateRecordKind::Parameter) {
                     const auto parameter_index = parameter_index_for_id(record.id);
                     if (parameter_index >= 0) {
-                        if (record.size != sizeof(double)) {
+                        if (record.size != 8u) {
                             return false;
                         }
                         double value = 0.0;
-                        if (!read_all(stream, &value, sizeof(value)) || !std::isfinite(value)) {
+                        if (!read_f64_le(stream, value) || !std::isfinite(value)) {
                             return false;
                         }
                         const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
@@ -796,6 +949,7 @@ private:
         if constexpr (requires(Processor& processor) { processor.on_state_loaded(); }) {
             processor_.on_state_loaded();
         }
+        notify_host_parameter_values_changed();
     }
 
     inline static constinit const clap_plugin_params_t params_extension_{
@@ -814,6 +968,7 @@ private:
 
     Processor processor_{};
     const clap_host_t* host_ = nullptr;
+    const clap_host_params_t* host_params_ = nullptr;
     clap_plugin_t plugin_{};
     LifecycleState state_ = LifecycleState::Created;
     ParameterValues parameter_values_ = make_default_parameter_values();
