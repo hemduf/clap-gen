@@ -11,10 +11,12 @@ const HEADER_BODY: &str = r#"
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <system_error>
 
 #ifndef NDEBUG
@@ -106,6 +108,30 @@ public:
 
 private:
     using ParameterValues = decltype(make_default_parameter_values());
+    using StateFieldOffsets = std::array<std::uint32_t, generated_state_field_specs.size()>;
+    using StateFieldSizes = std::array<std::uint32_t, generated_state_field_specs.size()>;
+    using StateFieldPresence = std::array<bool, generated_state_field_specs.size()>;
+
+    static constexpr bool state_field_contract_available = requires(
+        Processor& processor,
+        std::uint32_t id,
+        const char* type,
+        std::byte* output,
+        const std::byte* input,
+        std::uint32_t size,
+        std::uint32_t* out_size,
+        const char* default_value,
+        bool has_default) {
+        { processor.save_state_field(id, type, output, size, out_size) } -> std::convertible_to<bool>;
+        { processor.validate_state_field(id, type, input, size, default_value, has_default) }
+            -> std::convertible_to<bool>;
+        { processor.apply_state_field(id, type, input, size, default_value, has_default) } noexcept;
+    };
+
+    static_assert(
+        generated_state_field_specs.empty() || state_field_contract_available,
+        "plugins declaring state fields must implement save_state_field(), validate_state_field(), "
+        "and noexcept apply_state_field() using the generated immutable field IDs");
 
     explicit PluginInstance(const clap_host_t* host) : host_(host) {}
 
@@ -402,6 +428,15 @@ private:
     static std::int32_t parameter_index_for_id(clap_id id) noexcept {
         for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {
             if (generated_parameter_specs[index].id == id) {
+                return static_cast<std::int32_t>(index);
+            }
+        }
+        return -1;
+    }
+
+    static std::int32_t state_field_index_for_id(std::uint32_t id) noexcept {
+        for (std::size_t index = 0; index < generated_state_field_specs.size(); ++index) {
+            if (generated_state_field_specs[index].id == id) {
                 return static_cast<std::int32_t>(index);
             }
         }
@@ -909,17 +944,51 @@ private:
         }
 #endif
         try {
-            constexpr auto record_bytes = kStateRecordHeaderBytes + 8u;
-            const auto record_count = static_cast<std::uint32_t>(generated_parameter_specs.size());
-            if (record_count > kMaxStateBytes / record_bytes) {
+            StateFieldOffsets field_offsets{};
+            StateFieldSizes field_sizes{};
+            std::unique_ptr<std::byte[]> field_payloads;
+            std::uint32_t field_payload_bytes = 0u;
+            if constexpr (!generated_state_field_specs.empty()) {
+                field_payloads.reset(new (std::nothrow) std::byte[kMaxStateBytes]);
+                if (!field_payloads) {
+                    return false;
+                }
+                for (std::size_t index = 0; index < generated_state_field_specs.size(); ++index) {
+                    const auto& spec = generated_state_field_specs[index];
+                    field_offsets[index] = field_payload_bytes;
+                    std::uint32_t size = 0u;
+                    if (!instance->processor_.save_state_field(
+                            spec.id,
+                            spec.type,
+                            field_payloads.get() + field_payload_bytes,
+                            kMaxStateBytes - field_payload_bytes,
+                            &size) ||
+                        size > kMaxStateBytes - field_payload_bytes) {
+                        return false;
+                    }
+                    field_sizes[index] = size;
+                    field_payload_bytes += size;
+                }
+            }
+
+            const auto parameter_count = static_cast<std::uint32_t>(generated_parameter_specs.size());
+            const auto field_count = static_cast<std::uint32_t>(generated_state_field_specs.size());
+            if (parameter_count > (kMaxStateBytes / (kStateRecordHeaderBytes + 8u))) {
+                return false;
+            }
+            std::uint64_t payload_bytes =
+                static_cast<std::uint64_t>(parameter_count) * (kStateRecordHeaderBytes + 8u);
+            payload_bytes +=
+                static_cast<std::uint64_t>(field_count) * kStateRecordHeaderBytes + field_payload_bytes;
+            if (payload_bytes > kMaxStateBytes) {
                 return false;
             }
             const StateHeader header{
                 kStateMagic,
                 kStateSchemaVersion,
                 0u,
-                record_count,
-                record_count * record_bytes,
+                parameter_count + field_count,
+                static_cast<std::uint32_t>(payload_bytes),
             };
             if (!write_state_header(stream, header)) {
                 return false;
@@ -933,6 +1002,21 @@ private:
                 };
                 if (!write_state_record_header(stream, record) ||
                     !write_f64_le(stream, instance->parameter_values_[index])) {
+                    return false;
+                }
+            }
+            for (std::size_t index = 0; index < generated_state_field_specs.size(); ++index) {
+                const StateRecordHeader record{
+                    StateRecordKind::Field,
+                    0u,
+                    generated_state_field_specs[index].id,
+                    field_sizes[index],
+                };
+                if (!write_state_record_header(stream, record) ||
+                    !write_all(
+                        stream,
+                        field_payloads.get() + field_offsets[index],
+                        field_sizes[index])) {
                     return false;
                 }
             }
@@ -964,6 +1048,17 @@ private:
             }
 
             auto candidate_parameter_values = make_default_parameter_values();
+            StateFieldPresence candidate_field_present{};
+            StateFieldOffsets candidate_field_offsets{};
+            StateFieldSizes candidate_field_sizes{};
+            std::unique_ptr<std::byte[]> candidate_field_bytes;
+            if constexpr (!generated_state_field_specs.empty()) {
+                candidate_field_bytes.reset(new (std::nothrow) std::byte[kMaxStateBytes]);
+                if (!candidate_field_bytes) {
+                    return false;
+                }
+            }
+            std::uint32_t candidate_field_bytes_used = 0u;
             std::uint32_t consumed = 0u;
             for (std::uint32_t record_index = 0u; record_index < header.record_count; ++record_index) {
                 StateRecordHeader record{};
@@ -994,27 +1089,93 @@ private:
                     } else if (!skip_unknown(stream, record.size)) {
                         return false;
                     }
-                } else {
-                    // StateRecordKind::Field and future unknown record kinds are skipped so newer
-                    // writers remain forward-compatible with this bounded reader.
-                    if (!skip_unknown(stream, record.size)) {
+                } else if (record.kind == StateRecordKind::Field) {
+                    const auto field_index = state_field_index_for_id(record.id);
+                    if (field_index >= 0) {
+                        if constexpr (generated_state_field_specs.empty()) {
+                            return false;
+                        } else {
+                            if (record.size > kMaxStateBytes - candidate_field_bytes_used) {
+                                return false;
+                            }
+                            const auto index = static_cast<std::size_t>(field_index);
+                            candidate_field_offsets[index] = candidate_field_bytes_used;
+                            candidate_field_sizes[index] = record.size;
+                            candidate_field_present[index] = true;
+                            if (!read_all(
+                                    stream,
+                                    candidate_field_bytes.get() + candidate_field_bytes_used,
+                                    record.size)) {
+                                return false;
+                            }
+                            candidate_field_bytes_used += record.size;
+                        }
+                    } else if (!skip_unknown(stream, record.size)) {
                         return false;
                     }
+                } else if (!skip_unknown(stream, record.size)) {
+                    return false;
                 }
                 consumed += record.size;
             }
             if (consumed != header.payload_bytes) {
                 return false;
             }
-            instance->commit_loaded_state(candidate_parameter_values);
+
+            if constexpr (!generated_state_field_specs.empty()) {
+                for (std::size_t index = 0; index < generated_state_field_specs.size(); ++index) {
+                    const auto& spec = generated_state_field_specs[index];
+                    const auto* data = candidate_field_present[index]
+                        ? candidate_field_bytes.get() + candidate_field_offsets[index]
+                        : nullptr;
+                    const auto size = candidate_field_present[index] ? candidate_field_sizes[index] : 0u;
+                    if (!instance->processor_.validate_state_field(
+                            spec.id,
+                            spec.type,
+                            data,
+                            size,
+                            spec.default_value,
+                            spec.has_default)) {
+                        return false;
+                    }
+                }
+            }
+
+            instance->commit_loaded_state(
+                candidate_parameter_values,
+                candidate_field_bytes.get(),
+                candidate_field_offsets,
+                candidate_field_sizes,
+                candidate_field_present);
             return true;
         } catch (...) {
             return false;
         }
     }
 
-    void commit_loaded_state(const ParameterValues& candidate_parameter_values) {
+    void commit_loaded_state(
+        const ParameterValues& candidate_parameter_values,
+        const std::byte* candidate_field_bytes,
+        const StateFieldOffsets& candidate_field_offsets,
+        const StateFieldSizes& candidate_field_sizes,
+        const StateFieldPresence& candidate_field_present) {
         parameter_values_ = candidate_parameter_values;
+        if constexpr (!generated_state_field_specs.empty()) {
+            for (std::size_t index = 0; index < generated_state_field_specs.size(); ++index) {
+                const auto& spec = generated_state_field_specs[index];
+                const auto* data = candidate_field_present[index]
+                    ? candidate_field_bytes + candidate_field_offsets[index]
+                    : nullptr;
+                const auto size = candidate_field_present[index] ? candidate_field_sizes[index] : 0u;
+                processor_.apply_state_field(
+                    spec.id,
+                    spec.type,
+                    data,
+                    size,
+                    spec.default_value,
+                    spec.has_default);
+            }
+        }
         if constexpr (requires(Processor& processor) { processor.on_state_loaded(); }) {
             processor_.on_state_loaded();
         }
