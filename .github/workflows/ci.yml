@@ -10,7 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  # A per-head-SHA group (`${{ github.event.pull_request.head.sha || github.sha }}`) avoids stale-rerun deadlocks
+  # but lets every obsolete commit consume a full matrix. First attempts instead share one PR/ref group so a new
+  # commit cancels its obsolete predecessor; manual reruns are isolated by their stable run id.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_attempt == 1 && 'head' || github.run_id }}
   cancel-in-progress: true
 
 env:
