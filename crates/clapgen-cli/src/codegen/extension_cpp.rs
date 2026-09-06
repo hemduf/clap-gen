@@ -90,7 +90,7 @@ struct GeneratedParameterSpec {\n\
     }
     writeln!(
         &mut output,
-        "}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\ninline constexpr auto make_default_parameter_values() noexcept {{\n    std::array<double, generated_parameter_specs.size()> values{{}};\n    for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n        values[index] = generated_parameter_specs[index].default_value;\n    }}\n    return values;\n}}\n\n}} // namespace clapgen::generated::detail",
+        "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\ninline constexpr auto make_default_parameter_values() noexcept {{\n    std::array<double, generated_parameter_specs.size()> values{{}};\n    for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n        values[index] = generated_parameter_specs[index].default_value;\n    }}\n    return values;\n}}\n\n}} // namespace clapgen::generated::detail",
         if params_enabled { "true" } else { "false" },
         if state_enabled { "true" } else { "false" }
     )
