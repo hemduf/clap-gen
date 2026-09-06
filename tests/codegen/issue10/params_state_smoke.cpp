@@ -121,17 +121,44 @@ struct FixedInputStream {
     std::size_t offset = 0;
 };
 
-const void* CLAP_ABI no_extension(const clap_host_t*, const char*) { return nullptr; }
+struct HostState {
+    std::uint32_t value_rescans = 0u;
+};
+
+void CLAP_ABI host_params_rescan(const clap_host_t* host, clap_param_rescan_flags flags) {
+    auto* state = static_cast<HostState*>(host->host_data);
+    if ((flags & CLAP_PARAM_RESCAN_VALUES) != 0u) {
+        ++state->value_rescans;
+    }
+}
+
+void CLAP_ABI host_params_clear(const clap_host_t*, clap_id, clap_param_clear_flags) {}
+void CLAP_ABI host_params_request_flush(const clap_host_t*) {}
+
+const clap_host_params_t host_params{
+    .rescan = host_params_rescan,
+    .clear = host_params_clear,
+    .request_flush = host_params_request_flush,
+};
+
+const void* CLAP_ABI get_host_extension(const clap_host_t*, const char* extension_id) {
+    if (extension_id != nullptr && std::strcmp(extension_id, CLAP_EXT_PARAMS) == 0) {
+        return &host_params;
+    }
+    return nullptr;
+}
+
 void CLAP_ABI no_request(const clap_host_t*) {}
 
+HostState host_state{};
 const clap_host_t host{
     .clap_version = CLAP_VERSION,
-    .host_data = nullptr,
+    .host_data = &host_state,
     .name = "issue10-host",
     .vendor = "clap-gen",
     .url = "https://example.invalid",
     .version = "1",
-    .get_extension = no_extension,
+    .get_extension = get_host_extension,
     .request_restart = no_request,
     .request_process = no_request,
     .request_callback = no_request,
@@ -180,6 +207,22 @@ int main() {
     assert(plugin->activate(plugin, 48000.0, 1u, 64u));
     assert(plugin->start_processing(plugin));
 
+    const clap_event_param_value_t stale_automation{
+        .header = clap_event_header_t{
+            .size = sizeof(clap_event_param_value_t),
+            .time = 3u,
+            .space_id = CLAP_CORE_EVENT_SPACE_ID,
+            .type = CLAP_EVENT_PARAM_VALUE,
+            .flags = 0u,
+        },
+        .param_id = 999u,
+        .cookie = nullptr,
+        .note_id = -1,
+        .port_index = -1,
+        .channel = -1,
+        .key = -1,
+        .value = 0.75,
+    };
     const clap_event_param_value_t automation{
         .header = clap_event_header_t{
             .size = sizeof(clap_event_param_value_t),
@@ -213,6 +256,7 @@ int main() {
         .amount = 0.25,
     };
     InputEvents process_events;
+    process_events.push(&stale_automation.header);
     process_events.push(&automation.header);
     process_events.push(&modulation.header);
     const clap_process_t process{
@@ -245,6 +289,10 @@ int main() {
     FixedOutputStream saved;
     assert(state->save(plugin, &saved.iface));
     assert(saved.size > 0u);
+    assert(std::to_integer<unsigned char>(saved.bytes[0]) == static_cast<unsigned char>('C'));
+    assert(std::to_integer<unsigned char>(saved.bytes[1]) == static_cast<unsigned char>('G'));
+    assert(std::to_integer<unsigned char>(saved.bytes[2]) == static_cast<unsigned char>('P'));
+    assert(std::to_integer<unsigned char>(saved.bytes[3]) == static_cast<unsigned char>('1'));
 
     const clap_event_param_value_t changed{
         .header = clap_event_header_t{
@@ -272,12 +320,14 @@ int main() {
     assert(!state->load(plugin, &truncated.iface));
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 0.5); // failed load is transactional
+    assert(host_state.value_rescans == 0u);
 
     FixedInputStream restored(saved.bytes.data(), saved.size);
     assert(state->load(plugin, &restored.iface));
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 1.5);
     assert(instance->processor().state_loads == 1u);
+    assert(host_state.value_rescans == 1u);
 
     plugin->destroy(plugin);
     return 0;
