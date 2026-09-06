@@ -10,7 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A per-head-SHA group (`${{ github.event.pull_request.head.sha || github.sha }}`) avoids stale-rerun deadlocks
+  # but lets every obsolete commit consume a full matrix. First attempts instead share one PR/ref group so a new
+  # commit cancels its obsolete predecessor; manual reruns are isolated by their stable run id.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_attempt == 1 && 'head' || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -76,6 +79,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if rustup toolchain install 1.98.0 --profile minimal; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
 
       - name: Install C++ analysis tools (Linux)
         if: runner.os == 'Linux'
@@ -194,7 +210,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: sanitizers-${{ runner.os }}
+          name: sanitizers-${{ matrix.os }}
           path: build/sanitizers/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 7
