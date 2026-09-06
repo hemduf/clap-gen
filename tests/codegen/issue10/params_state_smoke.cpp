@@ -200,9 +200,13 @@ int main() {
 
     char text[64]{};
     assert(params->value_to_text(plugin, 1u, 1.25, text, sizeof(text)));
+    assert(std::strcmp(text, "1.25 x") == 0);
     double parsed = 0.0;
     assert(params->text_to_value(plugin, 1u, text, &parsed));
     assert(std::abs(parsed - 1.25) < 1.0e-12);
+    assert(!params->text_to_value(plugin, 2u, "0.5", &parsed));
+    assert(params->text_to_value(plugin, 2u, "1", &parsed));
+    assert(parsed == 1.0);
 
     assert(plugin->activate(plugin, 48000.0, 1u, 64u));
     assert(plugin->start_processing(plugin));
