@@ -1,8 +1,35 @@
 cmake_minimum_required(VERSION 3.25)
 
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml" CLAPGEN_CARGO_TOML_LINES)
+set(_clapgen_in_workspace_package FALSE)
+foreach(_clapgen_line IN LISTS CLAPGEN_CARGO_TOML_LINES)
+  if(_clapgen_line MATCHES "^\\[workspace\\.package\\][ \t]*$")
+    set(_clapgen_in_workspace_package TRUE)
+  elseif(_clapgen_line MATCHES "^\\[.*\\][ \t]*$")
+    set(_clapgen_in_workspace_package FALSE)
+  elseif(
+    _clapgen_in_workspace_package
+    AND _clapgen_line MATCHES "^version[ \t]*=[ \t]*\"([^\"]+)\"[ \t]*$"
+  )
+    set(CLAPGEN_VERSION "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+
+if(NOT DEFINED CLAPGEN_VERSION)
+  message(FATAL_ERROR "Unable to read [workspace.package].version from Cargo.toml")
+endif()
+if(
+  NOT CLAPGEN_VERSION
+    MATCHES
+      "^([0-9]+)\\.([0-9]+)\\.([0-9]+)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+)
+  message(FATAL_ERROR "Cargo.toml workspace version is not valid SemVer: ${CLAPGEN_VERSION}")
+endif()
+set(CLAPGEN_VERSION_CORE "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+
 project(
   ClapGen
-  VERSION 0.1.0
+  VERSION "${CLAPGEN_VERSION_CORE}"
   DESCRIPTION "Metadata-driven CLAP plugin code generator"
   LANGUAGES CXX
 )
@@ -19,6 +46,7 @@ add_library(clapgen_runtime STATIC runtime/src/runtime.cpp)
 add_library(ClapGen::Runtime ALIAS clapgen_runtime)
 
 target_compile_features(clapgen_runtime PUBLIC cxx_std_20)
+target_compile_definitions(clapgen_runtime PRIVATE "CLAPGEN_VERSION=\"${CLAPGEN_VERSION}\"")
 target_include_directories(
   clapgen_runtime
   PUBLIC
@@ -37,6 +65,9 @@ include(ClapGenPackage)
 include(CTest)
 if(BUILD_TESTING)
   add_executable(clapgen_runtime_smoke tests/runtime/runtime_smoke.cpp)
+  target_compile_definitions(
+    clapgen_runtime_smoke PRIVATE "CLAPGEN_EXPECTED_VERSION=\"${CLAPGEN_VERSION}\""
+  )
   target_link_libraries(clapgen_runtime_smoke PRIVATE ClapGen::Runtime)
   clapgen_enable_warnings(clapgen_runtime_smoke)
   add_test(NAME clapgen.runtime.smoke COMMAND clapgen_runtime_smoke)
