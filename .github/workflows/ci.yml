@@ -217,7 +217,7 @@ jobs:
 
   required:
     name: Required CI gate
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [policy, rust, cpp, sanitizers]
     runs-on: ubuntu-latest
     steps:
