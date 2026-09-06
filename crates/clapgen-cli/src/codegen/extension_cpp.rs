@@ -134,27 +134,36 @@ struct GeneratedStateFieldSpec {\n\
     writeln!(
         &mut output,
         "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\n\
+#if defined(__wasm__) && !defined(__wasm_atomics__)\n\
+// WCLAP/WASI currently uses a single-threaded realtime contract when wasm atomics are absent.\n\
+// Do not require a non-lock-free library atomic fallback on that target.\n\
+using GeneratedParameterStorage = double;\n\
+inline double load_parameter_value(const GeneratedParameterStorage& storage) noexcept {{ return storage; }}\n\
+inline void store_parameter_value(GeneratedParameterStorage& storage, double value) noexcept {{ storage = value; }}\n\
+#else\n\
+using GeneratedParameterStorage = std::atomic<std::uint64_t>;\n\
 static_assert(\n\
-    std::atomic<std::uint64_t>::is_always_lock_free,\n\
-    \"generated realtime parameter snapshots require lock-free 64-bit atomics\");\n\n\
-inline double load_parameter_value(const std::atomic<std::uint64_t>& storage) noexcept {{\n\
+    generated_parameter_specs.empty() || GeneratedParameterStorage::is_always_lock_free,\n\
+    \"generated realtime parameter snapshots require lock-free 64-bit atomics\");\n\
+inline double load_parameter_value(const GeneratedParameterStorage& storage) noexcept {{\n\
     return std::bit_cast<double>(storage.load(std::memory_order_relaxed));\n\
 }}\n\n\
-inline void store_parameter_value(std::atomic<std::uint64_t>& storage, double value) noexcept {{\n\
+inline void store_parameter_value(GeneratedParameterStorage& storage, double value) noexcept {{\n\
     storage.store(std::bit_cast<std::uint64_t>(value), std::memory_order_relaxed);\n\
-}}\n\n\
+}}\n\
+#endif\n\n\
 class GeneratedParameterValues final {{\n\
 public:\n\
     class Reference final {{\n\
     public:\n\
-        explicit Reference(std::atomic<std::uint64_t>& storage) noexcept : storage_(&storage) {{}}\n\
+        explicit Reference(GeneratedParameterStorage& storage) noexcept : storage_(&storage) {{}}\n\
         Reference& operator=(double value) noexcept {{\n\
             store_parameter_value(*storage_, value);\n\
             return *this;\n\
         }}\n\
         operator double() const noexcept {{ return load_parameter_value(*storage_); }}\n\
     private:\n\
-        std::atomic<std::uint64_t>* storage_;\n\
+        GeneratedParameterStorage* storage_;\n\
     }};\n\n\
     GeneratedParameterValues() noexcept {{\n\
         for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n\
@@ -178,7 +187,7 @@ private:\n\
             store_parameter_value(values_[index], load_parameter_value(other.values_[index]));\n\
         }}\n\
     }}\n\n\
-    std::array<std::atomic<std::uint64_t>, generated_parameter_specs.size()> values_{{}};\n\
+    std::array<GeneratedParameterStorage, generated_parameter_specs.size()> values_{{}};\n\
 }};\n\n\
 inline GeneratedParameterValues make_default_parameter_values() noexcept {{\n\
     return GeneratedParameterValues{{}};\n\
