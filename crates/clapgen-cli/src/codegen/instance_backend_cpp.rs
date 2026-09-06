@@ -460,25 +460,30 @@ private:
         return source[length] == '\0';
     }
 
+    static double canonical_parameter_value(
+        const GeneratedParameterSpec& spec,
+        double value) noexcept {
+        return (spec.flags & CLAP_PARAM_IS_STEPPED) != 0u ? std::trunc(value) : value;
+    }
+
     static bool parameter_value_is_valid(
         const GeneratedParameterSpec& spec,
         double value) noexcept {
-        if (!std::isfinite(value) || value < spec.min_value || value > spec.max_value) {
+        if (!std::isfinite(value)) {
             return false;
         }
-        if ((spec.flags & CLAP_PARAM_IS_STEPPED) == 0u) {
-            return true;
-        }
+        const double canonical = canonical_parameter_value(spec, value);
+        return canonical >= spec.min_value && canonical <= spec.max_value;
+    }
 
-        double snapped = std::round(value);
-        if (spec.steps > 1 && spec.max_value > spec.min_value) {
-            const double step =
-                (spec.max_value - spec.min_value) / static_cast<double>(spec.steps - 1);
-            const double step_index = std::round((value - spec.min_value) / step);
-            snapped = spec.min_value + step_index * step;
+    static bool parameter_text_value_is_valid(
+        const GeneratedParameterSpec& spec,
+        double value) noexcept {
+        if (!parameter_value_is_valid(spec, value)) {
+            return false;
         }
-        const double tolerance = 1.0e-9 * std::max(1.0, std::abs(value));
-        return std::abs(value - snapped) <= tolerance;
+        return (spec.flags & CLAP_PARAM_IS_STEPPED) == 0u ||
+               canonical_parameter_value(spec, value) == value;
     }
 
     static bool is_ascii_space(char value) noexcept {
@@ -596,6 +601,7 @@ private:
         if (!parameter_value_is_valid(spec, value)) {
             return false;
         }
+        value = canonical_parameter_value(spec, value);
 
         auto* begin = out_buffer;
         auto* end = out_buffer + out_buffer_capacity - 1u;
@@ -649,10 +655,10 @@ private:
         const auto result = std::from_chars(param_value_text, end, value, std::chars_format::general);
         if (result.ec != std::errc{} ||
             !parameter_text_suffix_matches(result.ptr, end, spec.unit) ||
-            !parameter_value_is_valid(spec, value)) {
+            !parameter_text_value_is_valid(spec, value)) {
             return false;
         }
-        *out_value = value;
+        *out_value = canonical_parameter_value(spec, value);
         return true;
     }
 
@@ -716,7 +722,8 @@ private:
                     continue;
                 }
                 if (is_global_target(*value_event)) {
-                    parameter_values_[static_cast<std::size_t>(parameter_index)] = value_event->value;
+                    parameter_values_[static_cast<std::size_t>(parameter_index)] =
+                        canonical_parameter_value(spec, value_event->value);
                 }
                 deliver_parameter_event(header);
                 break;
@@ -1085,7 +1092,8 @@ private:
                         if (!parameter_value_is_valid(spec, value)) {
                             return false;
                         }
-                        candidate_parameter_values[static_cast<std::size_t>(parameter_index)] = value;
+                        candidate_parameter_values[static_cast<std::size_t>(parameter_index)] =
+                            canonical_parameter_value(spec, value);
                     } else if (!skip_unknown(stream, record.size)) {
                         return false;
                     }
