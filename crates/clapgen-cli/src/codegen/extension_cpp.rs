@@ -59,11 +59,15 @@ fn parameter_spec_block(ir: &CanonicalIr) -> String {
     let params_enabled = has_stable_extension(ir, "clap.params");
     let state_enabled = has_stable_extension(ir, "clap.state");
     let parameters = if params_enabled { ir.parameters() } else { &[] };
-    let mut state_fields = if state_enabled { ir.state_fields().iter().collect::<Vec<_>>() } else { Vec::new() };
+    let mut state_fields = if state_enabled {
+        ir.state_fields().iter().collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     state_fields.sort_by_key(|field| state_field_numeric_id(ir, field));
 
     let mut output = String::from(
-        "\n#include <array>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
+        "\n#include <array>\n#include <atomic>\n#include <bit>\n#include <cstddef>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
 struct GeneratedParameterSpec {\n\
     clap_id id;\n\
     clap_param_info_flags flags;\n\
@@ -129,7 +133,56 @@ struct GeneratedStateFieldSpec {\n\
     }
     writeln!(
         &mut output,
-        "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\ninline constexpr auto make_default_parameter_values() noexcept {{\n    std::array<double, generated_parameter_specs.size()> values{{}};\n    for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n        values[index] = generated_parameter_specs[index].default_value;\n    }}\n    return values;\n}}\n\n}} // namespace clapgen::generated::detail",
+        "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\n\
+static_assert(\n\
+    std::atomic<std::uint64_t>::is_always_lock_free,\n\
+    \"generated realtime parameter snapshots require lock-free 64-bit atomics\");\n\n\
+inline double load_parameter_value(const std::atomic<std::uint64_t>& storage) noexcept {{\n\
+    return std::bit_cast<double>(storage.load(std::memory_order_relaxed));\n\
+}}\n\n\
+inline void store_parameter_value(std::atomic<std::uint64_t>& storage, double value) noexcept {{\n\
+    storage.store(std::bit_cast<std::uint64_t>(value), std::memory_order_relaxed);\n\
+}}\n\n\
+class GeneratedParameterValues final {{\n\
+public:\n\
+    class Reference final {{\n\
+    public:\n\
+        explicit Reference(std::atomic<std::uint64_t>& storage) noexcept : storage_(&storage) {{}}\n\
+        Reference& operator=(double value) noexcept {{\n\
+            store_parameter_value(*storage_, value);\n\
+            return *this;\n\
+        }}\n\
+        operator double() const noexcept {{ return load_parameter_value(*storage_); }}\n\
+    private:\n\
+        std::atomic<std::uint64_t>* storage_;\n\
+    }};\n\n\
+    GeneratedParameterValues() noexcept {{\n\
+        for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n\
+            store_parameter_value(values_[index], generated_parameter_specs[index].default_value);\n\
+        }}\n\
+    }}\n\n\
+    GeneratedParameterValues(const GeneratedParameterValues& other) noexcept {{\n\
+        copy_from(other);\n\
+    }}\n\n\
+    GeneratedParameterValues& operator=(const GeneratedParameterValues& other) noexcept {{\n\
+        if (this != &other) {{\n\
+            copy_from(other);\n\
+        }}\n\
+        return *this;\n\
+    }}\n\n\
+    Reference operator[](std::size_t index) noexcept {{ return Reference{{values_[index]}}; }}\n\
+    double operator[](std::size_t index) const noexcept {{ return load_parameter_value(values_[index]); }}\n\n\
+private:\n\
+    void copy_from(const GeneratedParameterValues& other) noexcept {{\n\
+        for (std::size_t index = 0; index < values_.size(); ++index) {{\n\
+            store_parameter_value(values_[index], load_parameter_value(other.values_[index]));\n\
+        }}\n\
+    }}\n\n\
+    std::array<std::atomic<std::uint64_t>, generated_parameter_specs.size()> values_{{}};\n\
+}};\n\n\
+inline GeneratedParameterValues make_default_parameter_values() noexcept {{\n\
+    return GeneratedParameterValues{{}};\n\
+}}\n\n}} // namespace clapgen::generated::detail",
         if params_enabled { "true" } else { "false" },
         if state_enabled { "true" } else { "false" }
     )
