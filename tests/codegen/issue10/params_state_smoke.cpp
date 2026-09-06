@@ -29,6 +29,66 @@ struct TestProcessor {
         }
     }
 
+    bool save_state_field(
+        std::uint32_t id,
+        const char* type,
+        std::byte* output,
+        std::uint32_t capacity,
+        std::uint32_t* out_size) {
+        if (id != 3u || type == nullptr || std::strcmp(type, "u32") != 0 || output == nullptr ||
+            out_size == nullptr || capacity < 4u) {
+            return false;
+        }
+        output[0] = std::byte{static_cast<std::uint8_t>(seed)};
+        output[1] = std::byte{static_cast<std::uint8_t>(seed >> 8u)};
+        output[2] = std::byte{static_cast<std::uint8_t>(seed >> 16u)};
+        output[3] = std::byte{static_cast<std::uint8_t>(seed >> 24u)};
+        *out_size = 4u;
+        return true;
+    }
+
+    bool validate_state_field(
+        std::uint32_t id,
+        const char* type,
+        const std::byte* input,
+        std::uint32_t size,
+        const char* default_value,
+        bool has_default) {
+        if (id != 3u || type == nullptr || std::strcmp(type, "u32") != 0) {
+            return false;
+        }
+        if (input == nullptr) {
+            return size == 0u && has_default && default_value != nullptr &&
+                   std::strcmp(default_value, "7") == 0;
+        }
+        return size == 4u;
+    }
+
+    void apply_state_field(
+        std::uint32_t id,
+        const char* type,
+        const std::byte* input,
+        std::uint32_t size,
+        const char* default_value,
+        bool has_default) noexcept {
+        if (id != 3u || type == nullptr || std::strcmp(type, "u32") != 0) {
+            return;
+        }
+        if (input == nullptr || size == 0u) {
+            if (has_default && default_value != nullptr && std::strcmp(default_value, "7") == 0) {
+                seed = 7u;
+            }
+            return;
+        }
+        if (size != 4u) {
+            return;
+        }
+        seed = static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(input[0])) |
+               (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(input[1])) << 8u) |
+               (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(input[2])) << 16u) |
+               (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(input[3])) << 24u);
+    }
+
     void on_state_loaded() { ++state_loads; }
 
     std::array<std::uint16_t, 8> event_types{};
@@ -36,6 +96,7 @@ struct TestProcessor {
     std::size_t event_count = 0;
     std::uint32_t process_calls = 0;
     std::uint32_t state_loads = 0;
+    std::uint32_t seed = 7u;
 };
 
 struct InputEvents {
@@ -290,6 +351,7 @@ int main() {
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 1.5); // modulation must not overwrite the base value
 
+    instance->processor().seed = 42u;
     FixedOutputStream saved;
     assert(state->save(plugin, &saved.iface));
     assert(saved.size > 0u);
@@ -319,17 +381,20 @@ int main() {
     params->flush(plugin, &flush_events.iface, nullptr);
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 0.5);
+    instance->processor().seed = 99u;
 
     FixedInputStream truncated(saved.bytes.data(), saved.size - 1u);
     assert(!state->load(plugin, &truncated.iface));
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 0.5); // failed load is transactional
+    assert(instance->processor().seed == 99u);
     assert(host_state.value_rescans == 0u);
 
     FixedInputStream restored(saved.bytes.data(), saved.size);
     assert(state->load(plugin, &restored.iface));
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 1.5);
+    assert(instance->processor().seed == 42u);
     assert(instance->processor().state_loads == 1u);
     assert(host_state.value_rescans == 1u);
 
