@@ -89,7 +89,7 @@ struct TestProcessor {
                (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(input[3])) << 24u);
     }
 
-    void on_state_loaded() { ++state_loads; }
+    void on_state_loaded() noexcept { ++state_loads; }
 
     std::array<std::uint16_t, 8> event_types{};
     std::array<std::uint32_t, 8> event_times{};
