@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::ir::{CanonicalIr, ParameterIr};
+use crate::ir::{CanonicalIr, ParameterIr, StateFieldIr};
 
 use super::cpp_literal;
 
@@ -59,6 +59,9 @@ fn parameter_spec_block(ir: &CanonicalIr) -> String {
     let params_enabled = has_stable_extension(ir, "clap.params");
     let state_enabled = has_stable_extension(ir, "clap.state");
     let parameters = if params_enabled { ir.parameters() } else { &[] };
+    let mut state_fields = if state_enabled { ir.state_fields().iter().collect::<Vec<_>>() } else { Vec::new() };
+    state_fields.sort_by_key(|field| state_field_numeric_id(ir, field));
+
     let mut output = String::from(
         "\n#include <array>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
 struct GeneratedParameterSpec {\n\
@@ -70,6 +73,14 @@ struct GeneratedParameterSpec {\n\
     double min_value;\n\
     double max_value;\n\
     double default_value;\n\
+};\n\n\
+struct GeneratedStateFieldSpec {\n\
+    std::uint32_t id;\n\
+    const char* name;\n\
+    const char* type;\n\
+    const char* tag;\n\
+    const char* default_value;\n\
+    bool has_default;\n\
 };\n\n",
     );
 
@@ -95,6 +106,27 @@ struct GeneratedParameterSpec {\n\
         )
         .expect("writing to String cannot fail");
     }
+    output.push_str("}};\n\n");
+
+    writeln!(
+        &mut output,
+        "inline constexpr std::array<GeneratedStateFieldSpec, {}> generated_state_field_specs{{{{",
+        state_fields.len()
+    )
+    .expect("writing to String cannot fail");
+    for field in state_fields {
+        let id = state_field_numeric_id(ir, field);
+        let name = cpp_literal::utf8_c_string(&field.name);
+        let field_type = cpp_literal::utf8_c_string(&field.field_type);
+        let tag = cpp_literal::utf8_c_string(field.tag.as_deref().unwrap_or(&field.name));
+        let default_value = cpp_literal::utf8_c_string(field.default.as_deref().unwrap_or(""));
+        let has_default = if field.default.is_some() { "true" } else { "false" };
+        writeln!(
+            &mut output,
+            "    GeneratedStateFieldSpec{{std::uint32_t{{{id}u}}, {name}, {field_type}, {tag}, {default_value}, {has_default}}},"
+        )
+        .expect("writing to String cannot fail");
+    }
     writeln!(
         &mut output,
         "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\ninline constexpr auto make_default_parameter_values() noexcept {{\n    std::array<double, generated_parameter_specs.size()> values{{}};\n    for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n        values[index] = generated_parameter_specs[index].default_value;\n    }}\n    return values;\n}}\n\n}} // namespace clapgen::generated::detail",
@@ -111,6 +143,14 @@ fn parameter_numeric_id(ir: &CanonicalIr, parameter: &ParameterIr) -> u32 {
         .iter()
         .find(|id| id.kind == "parameter" && id.key == parameter.id)
         .map_or_else(|| stable_fallback_id(&parameter.id), |id| id.value)
+}
+
+fn state_field_numeric_id(ir: &CanonicalIr, field: &StateFieldIr) -> u32 {
+    let key = field.tag.as_deref().unwrap_or(&field.name);
+    ir.persistent_ids()
+        .iter()
+        .find(|id| id.kind == "state-field" && id.key == key)
+        .map_or_else(|| stable_fallback_id(key), |id| id.value)
 }
 
 fn stable_fallback_id(value: &str) -> u32 {
