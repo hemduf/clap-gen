@@ -165,3 +165,51 @@ fn issue10_state_format_is_tagged_bounded_versioned_and_transactional() {
         assert!(backend.contains(required), "missing `{required}`:\n{backend}");
     }
 }
+
+#[test]
+fn issue10_state_wire_is_explicit_little_endian_and_not_native_object_layout() {
+    let plan = render_source();
+    let backend = generated_text(&plan, "clapgen_instance_backend.hpp");
+
+    for required in [
+        "write_u16_le",
+        "write_u32_le",
+        "write_u64_le",
+        "read_u16_le",
+        "read_u32_le",
+        "read_u64_le",
+        "std::bit_cast<std::uint64_t>",
+        "std::bit_cast<double>",
+        "kStateHeaderBytes",
+        "kStateRecordHeaderBytes",
+    ] {
+        assert!(backend.contains(required), "missing `{required}`:\n{backend}");
+    }
+
+    for forbidden in [
+        "write_all(stream, &header, sizeof(header))",
+        "write_all(stream, &record, sizeof(record))",
+        "write_all(stream, &instance->parameter_values_[index], sizeof(double))",
+        "read_all(stream, &header, sizeof(header))",
+        "read_all(stream, &record, sizeof(record))",
+        "read_all(stream, &value, sizeof(value))",
+    ] {
+        assert!(!backend.contains(forbidden), "native object-layout state leak `{forbidden}`:\n{backend}");
+    }
+}
+
+#[test]
+fn issue10_state_load_rescans_host_values_and_stale_parameter_events_are_ignored() {
+    let plan = render_source();
+    let backend = generated_text(&plan, "clapgen_instance_backend.hpp");
+
+    for required in [
+        "clap_host_params_t",
+        "CLAP_PARAM_RESCAN_VALUES",
+        "cache_host_params",
+        "notify_host_parameter_values_changed",
+        "continue; // unknown/stale parameter id",
+    ] {
+        assert!(backend.contains(required), "missing `{required}`:\n{backend}");
+    }
+}
