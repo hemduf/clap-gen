@@ -65,6 +65,8 @@ struct GeneratedParameterSpec {\n\
     clap_id id;\n\
     clap_param_info_flags flags;\n\
     const char* name;\n\
+    const char* unit;\n\
+    std::int64_t steps;\n\
     double min_value;\n\
     double max_value;\n\
     double default_value;\n\
@@ -81,9 +83,14 @@ struct GeneratedParameterSpec {\n\
         let id = parameter_numeric_id(ir, parameter);
         let flags = parameter_flags(parameter);
         let name = cpp_literal::utf8_c_string(&parameter.name);
+        let unit = cpp_literal::utf8_c_string(parameter.unit.as_deref().unwrap_or(""));
+        let steps = parameter
+            .steps
+            .map(|value| value.clamp(0, i64::MAX as i128) as i64)
+            .unwrap_or(0);
         writeln!(
             &mut output,
-            "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {}, {}, {}}},",
+            "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {unit}, {steps}, {}, {}, {}}},",
             parameter.min, parameter.max, parameter.default
         )
         .expect("writing to String cannot fail");
