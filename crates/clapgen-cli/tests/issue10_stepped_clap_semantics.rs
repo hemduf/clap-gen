@@ -9,10 +9,8 @@ fn temporary_directory() -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after epoch")
         .as_nanos();
-    env::temp_dir().join(format!(
-        "clapgen-issue10-stepped-semantics-{}-{nonce}",
-        std::process::id()
-    ))
+    env::temp_dir()
+        .join(format!("clapgen-issue10-stepped-semantics-{}-{nonce}", std::process::id()))
 }
 
 fn generate(metadata: &Path, out: &Path) {
@@ -23,11 +21,7 @@ fn generate(metadata: &Path, out: &Path) {
         .arg(out)
         .output()
         .expect("clapgen generate should run");
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
 #[test]
