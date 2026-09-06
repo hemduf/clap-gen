@@ -80,7 +80,10 @@ fn issue10_generates_native_parameter_metadata_and_extension_table() {
     }
 
     for forbidden in ["ParamEvent", "ParameterEvent", "ParamInfo", "ProcessBlock"] {
-        assert!(!extensions.contains(forbidden), "public ABI mirror `{forbidden}` leaked:\n{extensions}");
+        assert!(
+            !extensions.contains(forbidden),
+            "public ABI mirror `{forbidden}` leaked:\n{extensions}"
+        );
     }
 }
 
@@ -109,7 +112,10 @@ fn issue10_runtime_exposes_native_params_and_state_callbacks_without_audio_threa
     }
 
     for forbidden in ["std::vector", "std::map", "std::unordered_map", "std::mutex", "new Param"] {
-        assert!(!backend.contains(forbidden), "realtime-sensitive runtime uses `{forbidden}`:\n{backend}");
+        assert!(
+            !backend.contains(forbidden),
+            "realtime-sensitive runtime uses `{forbidden}`:\n{backend}"
+        );
     }
 }
 
