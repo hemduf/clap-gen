@@ -31,7 +31,7 @@ jobs:
         run: python3 -m unittest discover -s tests/ci -p 'test_*.py'
 
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
       - name: Lint workflows
         shell: bash
@@ -217,7 +217,7 @@ jobs:
 
   required:
     name: Required CI gate
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [policy, rust, cpp, sanitizers]
     runs-on: ubuntu-latest
     steps:

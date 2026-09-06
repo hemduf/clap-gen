@@ -1,0 +1,6 @@
+paths:
+  .github/workflows/release.yml:
+    ignore:
+      # GitHub documents macos-15-intel as the current standard Intel macOS runner,
+      # but actionlint v1.7.7 does not yet include that label in its built-in table.
+      - 'label "macos-15-intel" is unknown'

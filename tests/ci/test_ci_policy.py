@@ -63,7 +63,8 @@ class CiPolicyTest(unittest.TestCase):
         workflow = read(".github/workflows/ci.yml")
         self.assertIn("name: Required CI gate", workflow)
         self.assertIn("needs: [policy, rust, cpp, sanitizers]", workflow)
-        self.assertIn("if: always()", workflow)
+        self.assertIn("if: ${{ always() && !cancelled() }}", workflow)
+        self.assertNotIn("\n    if: always()\n", workflow)
         for dependency in ("policy", "rust", "cpp", "sanitizers"):
             self.assertIn(f"needs.{dependency}.result", workflow)
 
