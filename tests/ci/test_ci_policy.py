@@ -52,6 +52,8 @@ class CiPolicyTest(unittest.TestCase):
         workflow = read(".github/workflows/ci.yml")
         self.assertIn("concurrency:", workflow)
         self.assertIn("cancel-in-progress: true", workflow)
+        self.assertIn("github.run_attempt == 1", workflow)
+        self.assertIn("github.run_id", workflow)
         self.assertIn("actions/cache@v4", workflow)
         self.assertIn("hashFiles('**/Cargo.lock')", workflow)
         self.assertIn("actionlint", workflow)
