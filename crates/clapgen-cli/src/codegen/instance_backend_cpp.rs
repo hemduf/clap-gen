@@ -718,7 +718,8 @@ private:
                     continue; // unknown/stale parameter id
                 }
                 const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
-                if (!parameter_value_is_valid(spec, value_event->value)) {
+                if ((spec.flags & CLAP_PARAM_IS_READONLY) != 0u ||
+                    !parameter_value_is_valid(spec, value_event->value)) {
                     continue;
                 }
                 if (is_global_target(*value_event)) {
@@ -733,10 +734,13 @@ private:
                     return false;
                 }
                 const auto* mod_event = reinterpret_cast<const clap_event_param_mod_t*>(header);
-                if (parameter_index_for_id(mod_event->param_id) < 0) {
+                const auto parameter_index = parameter_index_for_id(mod_event->param_id);
+                if (parameter_index < 0) {
                     continue; // unknown/stale parameter id
                 }
-                if (!std::isfinite(mod_event->amount)) {
+                const auto& spec = generated_parameter_specs[static_cast<std::size_t>(parameter_index)];
+                if ((spec.flags & CLAP_PARAM_IS_MODULATABLE) == 0u ||
+                    !std::isfinite(mod_event->amount)) {
                     continue;
                 }
                 // Modulation is intentionally transient: never assign mod_event->amount to
