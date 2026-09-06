@@ -38,22 +38,30 @@ fn build(source: &str) -> Result<crate::ir::CanonicalIr, String> {
     fs::create_dir_all(&directory).expect("temporary directory");
     let path = directory.join("plugin.kdl");
     fs::write(&path, source).expect("manifest");
+    fs::write(
+        directory.join("plugin.ids.kdl"),
+        "ids version=1 next=5 {\n    entry kind=\"parameter\" key=\"gain\" value=1 tombstone=#false\n    entry kind=\"parameter\" key=\"mode\" value=2 tombstone=#false\n    entry kind=\"parameter\" key=\"bypass\" value=3 tombstone=#false\n    entry kind=\"state-field\" key=\"seed\" value=4 tombstone=#false\n}\n",
+    )
+    .expect("registry");
     let metadata = parse_metadata(&path, source)?;
-    let result = build_ir(&path, source, &metadata);
+    let result = build_ir(&path, source, &metadata).and_then(|ir| {
+        super::render::validate_runtime_ids(&ir)?;
+        Ok(ir)
+    });
     fs::remove_dir_all(directory).expect("temporary directory cleanup");
     result
+}
+
+fn generated_text<'a>(plan: &'a super::GenerationPlan, path: &str) -> &'a str {
+    let file = plan.files.iter().find(|file| file.path == path).expect("generated file");
+    std::str::from_utf8(&file.bytes).expect("generated UTF-8")
 }
 
 #[test]
 fn issue10_shared_parameter_snapshot_is_explicitly_lock_free() {
     let ir = build(VALID_SOURCE).expect("valid issue10 metadata");
     let plan = render(&ir);
-    let backend = plan
-        .files
-        .iter()
-        .find(|file| file.path == "clapgen_instance_backend.hpp")
-        .expect("generated backend");
-    let backend = std::str::from_utf8(&backend.bytes).expect("generated UTF-8");
+    let extensions = generated_text(&plan, "clapgen_extensions.hpp");
 
     for required in [
         "#include <atomic>",
@@ -61,12 +69,16 @@ fn issue10_shared_parameter_snapshot_is_explicitly_lock_free() {
         "is_always_lock_free",
         "load_parameter_value",
         "store_parameter_value",
+        "GeneratedParameterValues",
     ] {
-        assert!(backend.contains(required), "missing realtime parameter snapshot guard `{required}`:\n{backend}");
+        assert!(
+            extensions.contains(required),
+            "missing realtime parameter snapshot guard `{required}`:\n{extensions}"
+        );
     }
     assert!(
-        !backend.contains("ParameterValues parameter_values_ = make_default_parameter_values()"),
-        "plain shared double storage reintroduced across main/audio threads:\n{backend}"
+        !extensions.contains("std::array<double, generated_parameter_specs.size()>"),
+        "plain shared double storage reintroduced across main/audio threads:\n{extensions}"
     );
 }
 
@@ -74,18 +86,12 @@ fn issue10_shared_parameter_snapshot_is_explicitly_lock_free() {
 fn issue10_post_commit_state_hook_is_noexcept_by_contract() {
     let ir = build(VALID_SOURCE).expect("valid issue10 metadata");
     let plan = render(&ir);
-    let backend = plan
-        .files
-        .iter()
-        .find(|file| file.path == "clapgen_instance_backend.hpp")
-        .expect("generated backend");
-    let backend = std::str::from_utf8(&backend.bytes).expect("generated UTF-8");
+    let processor = generated_text(&plan, "clapgen_processor.hpp");
 
+    assert!(processor.contains("StateLoadedHookSafe"), "missing post-load hook safety concept:\n{processor}");
     assert!(
-        backend.contains("on_state_loaded() } noexcept")
-            || backend.contains("processor.on_state_loaded() } noexcept")
-            || backend.contains("state_loaded_hook_noexcept"),
-        "state load may report failure after committing state if the post-commit hook can throw:\n{backend}"
+        processor.contains("processor.on_state_loaded() } noexcept"),
+        "state load may report failure after committing state if the post-commit hook can throw:\n{processor}"
     );
 }
 
