@@ -44,7 +44,7 @@ fn issue51_adds_a_static_extension_surface_and_wires_plugin_dispatch() {
         "#include \"clapgen_extensions.hpp\"",
         ".get_extension = get_extension_plugin,",
         "static const void* CLAP_ABI get_extension_plugin(",
-        "return generated_plugin_extension(extension_id);",
+        "generated_plugin_extension(extension_id)",
     ] {
         assert!(backend.contains(required), "missing `{required}`:\n{backend}");
     }

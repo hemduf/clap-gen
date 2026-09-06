@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::ir::CanonicalIr;
+use crate::ir::{CanonicalIr, ParameterIr, StateFieldIr};
 
 use super::cpp_literal;
 
@@ -12,8 +12,10 @@ pub(crate) struct OwnedPluginExtension<'a> {
     pub(crate) table_symbol: &'a str,
 }
 
-pub(crate) fn header(_ir: &CanonicalIr) -> String {
-    header_for_owned_bindings(&[])
+pub(crate) fn header(ir: &CanonicalIr) -> String {
+    let mut output = header_for_owned_bindings(&[]);
+    output.push_str(&parameter_spec_block(ir));
+    output
 }
 
 pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -> String {
@@ -47,4 +49,221 @@ pub(crate) fn header_for_owned_bindings(bindings: &[OwnedPluginExtension<'_>]) -
     format!(
         "{BANNER}\n#pragma once\n\n#include <cstdint>\n#include <cstring>\n\nnamespace clapgen::generated::detail {{\n\nstruct PluginExtensionBinding {{\n    const char* id;\n    const void* table;\n}};\n\ninline const void* lookup_plugin_extension(\n    const PluginExtensionBinding* bindings,\n    std::uint32_t count,\n    const char* extension_id) noexcept {{\n    if (bindings == nullptr || extension_id == nullptr) {{\n        return nullptr;\n    }}\n    for (std::uint32_t index = 0; index < count; ++index) {{\n        if (bindings[index].id != nullptr &&\n            std::strcmp(extension_id, bindings[index].id) == 0) {{\n            return bindings[index].table;\n        }}\n    }}\n    return nullptr;\n}}\n\n// Extension declarations are not implementation ownership. Later capability generators\n// append bindings only when they emit the complete native clap_plugin_*_t table.\n{storage}inline constexpr std::uint32_t plugin_extension_count = {count}u;\n\ninline const void* generated_plugin_extension(const char* extension_id) noexcept {{\n    return lookup_plugin_extension({binding_pointer}, plugin_extension_count, extension_id);\n}}\n\n}} // namespace clapgen::generated::detail\n"
     )
+}
+
+fn has_stable_extension(ir: &CanonicalIr, id: &str) -> bool {
+    ir.stable_extension_items().iter().any(|extension| extension.id == id)
+}
+
+fn parameter_spec_block(ir: &CanonicalIr) -> String {
+    let params_enabled = has_stable_extension(ir, "clap.params");
+    let state_enabled = has_stable_extension(ir, "clap.state");
+    let parameters = if params_enabled { ir.parameters() } else { &[] };
+    let mut state_fields =
+        if state_enabled { ir.state_fields().iter().collect::<Vec<_>>() } else { Vec::new() };
+    state_fields.sort_by_key(|field| state_field_numeric_id(ir, field));
+
+    let mut output = String::from(
+        "\n#include <array>\n#include <atomic>\n#include <bit>\n#include <cstddef>\n#include <clap/ext/params.h>\n\nnamespace clapgen::generated::detail {\n\n\
+struct GeneratedParameterSpec {\n\
+    clap_id id;\n\
+    clap_param_info_flags flags;\n\
+    const char* name;\n\
+    const char* unit;\n\
+    std::int64_t steps;\n\
+    double min_value;\n\
+    double max_value;\n\
+    double default_value;\n\
+};\n\n\
+struct GeneratedStateFieldSpec {\n\
+    std::uint32_t id;\n\
+    const char* name;\n\
+    const char* type;\n\
+    const char* tag;\n\
+    const char* default_value;\n\
+    bool has_default;\n\
+};\n\n",
+    );
+
+    append_parameter_specs(&mut output, ir, parameters);
+    append_state_field_specs(&mut output, ir, &state_fields);
+    append_parameter_storage(&mut output, params_enabled, state_enabled);
+    output.push('\n');
+    output
+}
+
+fn append_parameter_specs(output: &mut String, ir: &CanonicalIr, parameters: &[ParameterIr]) {
+    writeln!(
+        output,
+        "inline constexpr std::array<GeneratedParameterSpec, {}> generated_parameter_specs{{{{",
+        parameters.len()
+    )
+    .expect("writing to String cannot fail");
+    for parameter in parameters {
+        let id = parameter_numeric_id(ir, parameter);
+        let flags = parameter_flags(parameter);
+        let name = cpp_literal::utf8_c_string(&parameter.name);
+        let unit = cpp_literal::utf8_c_string(parameter.unit.as_deref().unwrap_or(""));
+        let steps = parameter_steps(parameter);
+        writeln!(
+            output,
+            "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {unit}, {steps}, {}, {}, {}}},",
+            parameter.min, parameter.max, parameter.default
+        )
+        .expect("writing to String cannot fail");
+    }
+    output.push_str("}};\n\n");
+}
+
+fn parameter_steps(parameter: &ParameterIr) -> i64 {
+    parameter.steps.map_or(0, |value| {
+        i64::try_from(value.clamp(0, i128::from(i64::MAX)))
+            .expect("clamped parameter step count must fit in i64")
+    })
+}
+
+fn append_state_field_specs(output: &mut String, ir: &CanonicalIr, state_fields: &[&StateFieldIr]) {
+    writeln!(
+        output,
+        "inline constexpr std::array<GeneratedStateFieldSpec, {}> generated_state_field_specs{{{{",
+        state_fields.len()
+    )
+    .expect("writing to String cannot fail");
+    for field in state_fields {
+        let id = state_field_numeric_id(ir, field);
+        let name = cpp_literal::utf8_c_string(&field.name);
+        let field_type = cpp_literal::utf8_c_string(&field.field_type);
+        let tag = cpp_literal::utf8_c_string(field.tag.as_deref().unwrap_or(&field.name));
+        let default_value = cpp_literal::utf8_c_string(field.default.as_deref().unwrap_or(""));
+        let has_default = if field.default.is_some() { "true" } else { "false" };
+        writeln!(
+            output,
+            "    GeneratedStateFieldSpec{{std::uint32_t{{{id}u}}, {name}, {field_type}, {tag}, {default_value}, {has_default}}},"
+        )
+        .expect("writing to String cannot fail");
+    }
+}
+
+fn append_parameter_storage(output: &mut String, params_enabled: bool, state_enabled: bool) {
+    writeln!(
+        output,
+        "}}}};\n\ninline constexpr bool generated_params_enabled = {};\ninline constexpr bool generated_state_enabled = {};\n\n\
+#if defined(__wasm__) && !defined(__wasm_atomics__)\n\
+// WCLAP/WASI currently uses a single-threaded realtime contract when wasm atomics are absent.\n\
+// Do not require a non-lock-free library atomic fallback on that target.\n\
+using GeneratedParameterStorage = double;\n\
+inline double load_parameter_value(const GeneratedParameterStorage& storage) noexcept {{ return storage; }}\n\
+inline void store_parameter_value(GeneratedParameterStorage& storage, double value) noexcept {{ storage = value; }}\n\
+#else\n\
+using GeneratedParameterStorage = std::atomic<std::uint64_t>;\n\
+static_assert(\n\
+    generated_parameter_specs.empty() || GeneratedParameterStorage::is_always_lock_free,\n\
+    \"generated realtime parameter snapshots require lock-free 64-bit atomics\");\n\
+inline double load_parameter_value(const GeneratedParameterStorage& storage) noexcept {{\n\
+    return std::bit_cast<double>(storage.load(std::memory_order_relaxed));\n\
+}}\n\n\
+inline void store_parameter_value(GeneratedParameterStorage& storage, double value) noexcept {{\n\
+    storage.store(std::bit_cast<std::uint64_t>(value), std::memory_order_relaxed);\n\
+}}\n\n\
+#endif\n\n\
+class GeneratedParameterValues final {{\n\
+public:\n\
+    class Reference final {{\n\
+    public:\n\
+        explicit Reference(GeneratedParameterStorage& storage) noexcept : storage_(&storage) {{}}\n\
+        Reference& operator=(double value) noexcept {{\n\
+            store_parameter_value(*storage_, value);\n\
+            return *this;\n\
+        }}\n\n\
+        operator double() const noexcept {{ return load_parameter_value(*storage_); }}\n\
+    private:\n\
+        GeneratedParameterStorage* storage_;\n\
+    }};\n\n\
+    GeneratedParameterValues() noexcept {{\n\
+        for (std::size_t index = 0; index < generated_parameter_specs.size(); ++index) {{\n\
+            store_parameter_value(values_[index], generated_parameter_specs[index].default_value);\n\
+        }}\n\
+    }}\n\n\
+    GeneratedParameterValues(const GeneratedParameterValues& other) noexcept {{\n\
+        copy_from(other);\n\
+    }}\n\n\
+    GeneratedParameterValues& operator=(const GeneratedParameterValues& other) noexcept {{\n\
+        if (this != &other) {{\n\
+            copy_from(other);\n\
+        }}\n\
+        return *this;\n\
+    }}\n\n\
+    Reference operator[](std::size_t index) noexcept {{ return Reference{{values_[index]}}; }}\n\
+    double operator[](std::size_t index) const noexcept {{ return load_parameter_value(values_[index]); }}\n\n\
+private:\n\
+    void copy_from(const GeneratedParameterValues& other) noexcept {{\n\
+        for (std::size_t index = 0; index < values_.size(); ++index) {{\n\
+            store_parameter_value(values_[index], load_parameter_value(other.values_[index]));\n\
+        }}\n\
+    }}\n\n\
+    std::array<GeneratedParameterStorage, generated_parameter_specs.size()> values_{{}};\n\
+}};\n\n\
+inline GeneratedParameterValues make_default_parameter_values() noexcept {{\n\
+    return GeneratedParameterValues{{}};\n\
+}}\n\n}} // namespace clapgen::generated::detail",
+        if params_enabled { "true" } else { "false" },
+        if state_enabled { "true" } else { "false" }
+    )
+    .expect("writing to String cannot fail");
+}
+
+fn parameter_numeric_id(ir: &CanonicalIr, parameter: &ParameterIr) -> u32 {
+    ir.persistent_ids()
+        .iter()
+        .find(|id| id.kind == "parameter" && id.key == parameter.id)
+        .map_or_else(|| stable_fallback_id(&parameter.id), |id| id.value)
+}
+
+fn state_field_numeric_id(ir: &CanonicalIr, field: &StateFieldIr) -> u32 {
+    let key = field.tag.as_deref().unwrap_or(&field.name);
+    ir.persistent_ids()
+        .iter()
+        .find(|id| id.kind == "state-field" && id.key == key)
+        .map_or_else(|| stable_fallback_id(key), |id| id.value)
+}
+
+fn stable_fallback_id(value: &str) -> u32 {
+    // FNV-1a is used only for development manifests without plugin.ids.kdl. Released
+    // plugins should allocate registry IDs so renames preserve their numeric identity.
+    let mut hash = 2_166_136_261u32;
+    for byte in value.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    if hash == u32::MAX { u32::MAX - 1 } else { hash }
+}
+
+fn parameter_flags(parameter: &ParameterIr) -> String {
+    let mut flags = parameter
+        .flags
+        .iter()
+        .filter_map(|flag| match flag.as_str() {
+            "stepped" => Some("CLAP_PARAM_IS_STEPPED"),
+            "periodic" => Some("CLAP_PARAM_IS_PERIODIC"),
+            "hidden" => Some("CLAP_PARAM_IS_HIDDEN"),
+            "readonly" => Some("CLAP_PARAM_IS_READONLY"),
+            "bypass" => Some("CLAP_PARAM_IS_BYPASS"),
+            "automatable" => Some("CLAP_PARAM_IS_AUTOMATABLE"),
+            "automatable-per-note-id" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_NOTE_ID"),
+            "automatable-per-key" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_KEY"),
+            "automatable-per-channel" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_CHANNEL"),
+            "automatable-per-port" => Some("CLAP_PARAM_IS_AUTOMATABLE_PER_PORT"),
+            "modulatable" => Some("CLAP_PARAM_IS_MODULATABLE"),
+            "modulatable-per-note-id" => Some("CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID"),
+            "modulatable-per-key" => Some("CLAP_PARAM_IS_MODULATABLE_PER_KEY"),
+            "modulatable-per-channel" => Some("CLAP_PARAM_IS_MODULATABLE_PER_CHANNEL"),
+            "modulatable-per-port" => Some("CLAP_PARAM_IS_MODULATABLE_PER_PORT"),
+            "requires-process" => Some("CLAP_PARAM_REQUIRES_PROCESS"),
+            "enum" => Some("CLAP_PARAM_IS_ENUM"),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    flags.sort_unstable();
+    flags.dedup();
+    if flags.is_empty() { "0u".to_owned() } else { flags.join(" | ") }
 }
