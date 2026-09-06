@@ -122,11 +122,7 @@ fn parameter_steps(parameter: &ParameterIr) -> i64 {
     })
 }
 
-fn append_state_field_specs(
-    output: &mut String,
-    ir: &CanonicalIr,
-    state_fields: &[&StateFieldIr],
-) {
+fn append_state_field_specs(output: &mut String, ir: &CanonicalIr, state_fields: &[&StateFieldIr]) {
     writeln!(
         output,
         "inline constexpr std::array<GeneratedStateFieldSpec, {}> generated_state_field_specs{{{{",
@@ -178,7 +174,7 @@ public:\n\
         Reference& operator=(double value) noexcept {{\n\
             store_parameter_value(*storage_, value);\n\
             return *this;\n\
-        }}\n\
+        }}\n\n\
         operator double() const noexcept {{ return load_parameter_value(*storage_); }}\n\
     private:\n\
         GeneratedParameterStorage* storage_;\n\
