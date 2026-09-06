@@ -44,7 +44,7 @@ fn render_source() -> GenerationPlan {
     fs::write(&path, SOURCE).expect("manifest");
     fs::write(
         directory.join("plugin.ids.kdl"),
-        "ids version=1 next=3 {\n    entry kind=\"parameter\" key=\"gain\" value=1 tombstone=#false\n    entry kind=\"parameter\" key=\"mode\" value=2 tombstone=#false\n}\n",
+        "ids version=1 next=4 {\n    entry kind=\"parameter\" key=\"gain\" value=1 tombstone=#false\n    entry kind=\"parameter\" key=\"mode\" value=2 tombstone=#false\n    entry kind=\"state-field\" key=\"seed\" value=3 tombstone=#false\n}\n",
     )
     .expect("registry");
 
@@ -231,6 +231,35 @@ fn issue10_parameter_conversion_preserves_units_and_stepped_domain() {
         "parameter_text_suffix_matches",
         "spec.unit",
         "spec.steps",
+    ] {
+        assert!(backend.contains(required), "missing `{required}`:\n{backend}");
+    }
+}
+
+#[test]
+fn issue10_declared_state_fields_use_immutable_ids_and_two_phase_processor_hooks() {
+    let plan = render_source();
+    let extensions = generated_text(&plan, "clapgen_extensions.hpp");
+    let backend = generated_text(&plan, "clapgen_instance_backend.hpp");
+
+    for required in [
+        "struct GeneratedStateFieldSpec",
+        "generated_state_field_specs",
+        "std::uint32_t{3u}",
+        "\"seed\"",
+        "\"u32\"",
+        "\"7\"",
+    ] {
+        assert!(extensions.contains(required), "missing `{required}`:\n{extensions}");
+    }
+    for required in [
+        "state_field_contract_available",
+        "save_state_field",
+        "validate_state_field",
+        "apply_state_field",
+        "candidate_field_present",
+        "candidate_field_offsets",
+        "candidate_field_sizes",
     ] {
         assert!(backend.contains(required), "missing `{required}`:\n{backend}");
     }
