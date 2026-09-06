@@ -142,6 +142,16 @@ fn issue10_bypass_requires_native_zero_one_stepped_domain() {
 }
 
 #[test]
+fn issue10_allows_at_most_one_bypass_parameter() {
+    let source = VALID_SOURCE.replace(
+        "param id=\"gain\" name=\"Gain\" min=0.0 max=2.0 default=1.0 flags=\"automatable,modulatable\"",
+        "param id=\"gain\" name=\"Gain\" min=0.0 max=1.0 default=0.0 flags=\"automatable,stepped,bypass\" steps=2",
+    );
+    let error = build(&source).expect_err("CLAP permits at most one bypass parameter per plugin");
+    assert!(error.contains("bypass") && error.contains("one"), "{error}");
+}
+
+#[test]
 fn issue10_stepped_parameters_use_integer_plain_values() {
     let source = VALID_SOURCE.replace(
         "min=0.0 max=2.0 default=0.0 flags=\"automatable,stepped,enum\" steps=3",
