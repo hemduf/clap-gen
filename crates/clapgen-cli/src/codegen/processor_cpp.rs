@@ -11,7 +11,11 @@ namespace clapgen::generated {\n\n\
 // clap_process_t and its nested event lists and audio buffers are host-owned.\n\
 // These callback-scoped pointers must not be retained after Processor::process() returns.\n\n\
 template <typename Processor>\n\
-concept NativeProcessor = requires {\n\
+concept StateLoadedHookSafe =\n\
+    (!requires(Processor& processor) { processor.on_state_loaded(); }) ||\n\
+    requires(Processor& processor) { { processor.on_state_loaded() } noexcept; };\n\n\
+template <typename Processor>\n\
+concept NativeProcessor = StateLoadedHookSafe<Processor> && requires {\n\
     static_cast<bool (Processor::*)()>(&Processor::init);\n\
     static_cast<bool (Processor::*)(double, std::uint32_t, std::uint32_t)>(&Processor::activate);\n\
     static_cast<void (Processor::*)()>(&Processor::deactivate);\n\
