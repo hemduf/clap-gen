@@ -107,7 +107,10 @@ fn issue10_post_commit_state_hook_is_noexcept_by_contract() {
     let plan = render(&ir);
     let processor = generated_text(&plan, "clapgen_processor.hpp");
 
-    assert!(processor.contains("StateLoadedHookSafe"), "missing post-load hook safety concept:\n{processor}");
+    assert!(
+        processor.contains("StateLoadedHookSafe"),
+        "missing post-load hook safety concept:\n{processor}"
+    );
     assert!(
         processor.contains("processor.on_state_loaded() } noexcept"),
         "state load may report failure after committing state if the post-commit hook can throw:\n{processor}"
@@ -157,7 +160,8 @@ fn issue10_stepped_parameters_use_integer_plain_values() {
         "min=0.0 max=2.0 default=0.0 flags=\"automatable,stepped,enum\" steps=3",
         "min=0.0 max=2.5 default=0.5 flags=\"automatable,stepped,enum\" steps=3",
     );
-    let error = build(&source).expect_err("stepped parameter with non-integer plain values must fail");
+    let error =
+        build(&source).expect_err("stepped parameter with non-integer plain values must fail");
     assert!(error.contains("stepped") && error.contains("integer"), "{error}");
 }
 
