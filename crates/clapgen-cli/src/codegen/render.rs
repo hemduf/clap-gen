@@ -64,10 +64,7 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
 }
 
 fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
-    if !parameter.min.is_finite()
-        || !parameter.max.is_finite()
-        || !parameter.default.is_finite()
-    {
+    if !parameter.min.is_finite() || !parameter.max.is_finite() || !parameter.default.is_finite() {
         return Err(format!(
             "parameter `{}` has a non-finite range/default; CLAP parameter values must be finite",
             parameter.id
@@ -104,9 +101,7 @@ fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
         ));
     }
     if bypass
-        && (!stepped
-            || !exactly_equal(parameter.min, 0.0)
-            || !exactly_equal(parameter.max, 1.0))
+        && (!stepped || !exactly_equal(parameter.min, 0.0) || !exactly_equal(parameter.max, 1.0))
     {
         return Err(format!(
             "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
@@ -137,10 +132,7 @@ fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
 fn validate_stepped_parameter(parameter: &ParameterIr, stepped: bool) -> Result<(), String> {
     if !stepped {
         return if parameter.steps.is_some() {
-            Err(format!(
-                "parameter `{}` declares `steps` without the stepped flag",
-                parameter.id
-            ))
+            Err(format!("parameter `{}` declares `steps` without the stepped flag", parameter.id))
         } else {
             Ok(())
         };
@@ -157,10 +149,8 @@ fn validate_stepped_parameter(parameter: &ParameterIr, stepped: bool) -> Result<
         ));
     };
     if let Some(steps) = parameter.steps {
-        let expected = maximum
-            .checked_sub(minimum)
-            .and_then(|span| span.checked_add(1))
-            .ok_or_else(|| {
+        let expected =
+            maximum.checked_sub(minimum).and_then(|span| span.checked_add(1)).ok_or_else(|| {
                 format!(
                     "parameter `{}` stepped domain is too large to represent safely",
                     parameter.id

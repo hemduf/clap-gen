@@ -52,6 +52,8 @@ class CiPolicyTest(unittest.TestCase):
         workflow = read(".github/workflows/ci.yml")
         self.assertIn("concurrency:", workflow)
         self.assertIn("cancel-in-progress: true", workflow)
+        self.assertIn("github.run_attempt == 1", workflow)
+        self.assertIn("github.run_id", workflow)
         self.assertIn("actions/cache@v4", workflow)
         self.assertIn("hashFiles('**/Cargo.lock')", workflow)
         self.assertIn("actionlint", workflow)
@@ -61,7 +63,8 @@ class CiPolicyTest(unittest.TestCase):
         workflow = read(".github/workflows/ci.yml")
         self.assertIn("name: Required CI gate", workflow)
         self.assertIn("needs: [policy, rust, cpp, sanitizers]", workflow)
-        self.assertIn("if: always()", workflow)
+        self.assertIn("if: ${{ always() && !cancelled() }}", workflow)
+        self.assertNotIn("\n    if: always()\n", workflow)
         for dependency in ("policy", "rust", "cpp", "sanitizers"):
             self.assertIn(f"needs.{dependency}.result", workflow)
 
