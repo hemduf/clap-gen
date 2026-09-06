@@ -65,7 +65,7 @@ fn issue10_shared_parameter_snapshot_is_explicitly_lock_free() {
 
     for required in [
         "#include <atomic>",
-        "std::atomic<std::uint64_t>",
+        "using GeneratedParameterStorage = std::atomic<std::uint64_t>;",
         "is_always_lock_free",
         "load_parameter_value",
         "store_parameter_value",
@@ -78,8 +78,27 @@ fn issue10_shared_parameter_snapshot_is_explicitly_lock_free() {
     }
     assert!(
         !extensions.contains("std::array<double, generated_parameter_specs.size()>"),
-        "plain shared double storage reintroduced across main/audio threads:\n{extensions}"
+        "plain shared double storage reintroduced across native main/audio threads:\n{extensions}"
     );
+}
+
+#[test]
+fn issue10_single_thread_wasm_does_not_require_non_lock_free_atomic_fallbacks() {
+    let ir = build(VALID_SOURCE).expect("valid issue10 metadata");
+    let plan = render(&ir);
+    let extensions = generated_text(&plan, "clapgen_extensions.hpp");
+
+    for required in [
+        "#if defined(__wasm__) && !defined(__wasm_atomics__)",
+        "using GeneratedParameterStorage = double;",
+        "#else",
+        "using GeneratedParameterStorage = std::atomic<std::uint64_t>;",
+    ] {
+        assert!(
+            extensions.contains(required),
+            "missing explicit single-thread wasm parameter storage contract `{required}`:\n{extensions}"
+        );
+    }
 }
 
 #[test]
