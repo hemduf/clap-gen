@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate SemVer tag
+        shell: bash
+        run: python3 tools/release_version.py --tag "$GITHUB_REF_NAME"
+
+      - name: Require release commit on main
+        shell: bash
+        run: |
+          git fetch origin main --no-tags
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: Run release policy tests
+        run: python3 -m unittest discover -s tests/ci -p 'test_*.py'
+
+      - name: Run Rust tests
+        run: cargo test --workspace --locked
+
+  build:
+    name: Build ${{ matrix.asset }}
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: linux-x86_64
+            binary: clapgen
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            asset: macos-x86_64
+            binary: clapgen
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            asset: macos-arm64
+            binary: clapgen
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: windows-x86_64
+            binary: clapgen.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build -p clapgen-cli --release --locked --target ${{ matrix.target }}
+
+      - name: Package Unix CLI
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          VERSION="$(python3 tools/release_version.py)"
+          PACKAGE="clapgen-v${VERSION}-${{ matrix.asset }}"
+          mkdir -p "dist/${PACKAGE}"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/${PACKAGE}/"
+          cp README.md LICENSE "dist/${PACKAGE}/"
+          tar -C dist -czf "dist/${PACKAGE}.tar.gz" "${PACKAGE}"
+          rm -rf "dist/${PACKAGE}"
+
+      - name: Package Windows CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Version = python tools/release_version.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $Package = "clapgen-v$Version-${{ matrix.asset }}"
+          New-Item -ItemType Directory -Force -Path "dist/$Package" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/$Package/"
+          Copy-Item README.md, LICENSE "dist/$Package/"
+          Compress-Archive -Path "dist/$Package/*" -DestinationPath "dist/$Package.zip"
+          Remove-Item -Recurse -Force "dist/$Package"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.asset }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+            exit 0
+          fi
+
+          EXTRA_ARGS=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME" \
+            "${EXTRA_ARGS[@]}"

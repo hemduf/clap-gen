@@ -38,3 +38,9 @@ cargo run -p clapgen-cli -- doctor
 
 Dependency update rules are documented in [DEPENDENCIES.md](DEPENDENCIES.md). Generated-source
 ownership and realtime constraints are part of the repository policy and apply to every PR.
+
+## Releases
+
+The root `Cargo.toml` owns the project version. Release tags use `v<semver>` and are published by
+GitHub Actions with cross-platform CLI binaries and checksums. See [docs/releases.md](docs/releases.md)
+for the versioning policy and release procedure.
