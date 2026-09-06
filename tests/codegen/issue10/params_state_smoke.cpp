@@ -241,23 +241,31 @@ int main() {
         plugin->get_extension(plugin, CLAP_EXT_STATE));
     assert(params != nullptr);
     assert(state != nullptr);
-    assert(params->count(plugin) == 2u);
+    assert(params->count(plugin) == 3u);
 
     clap_param_info_t gain_info{};
     clap_param_info_t mode_info{};
+    clap_param_info_t meter_info{};
     assert(params->get_info(plugin, 0u, &gain_info));
     assert(params->get_info(plugin, 1u, &mode_info));
+    assert(params->get_info(plugin, 2u, &meter_info));
     assert(gain_info.id == 1u);
     assert(mode_info.id == 2u);
+    assert(meter_info.id == 4u);
     assert(std::strcmp(gain_info.name, "Gain") == 0);
+    assert(std::strcmp(meter_info.name, "Meter") == 0);
     assert((gain_info.flags & CLAP_PARAM_IS_AUTOMATABLE) != 0u);
     assert((gain_info.flags & CLAP_PARAM_IS_MODULATABLE) != 0u);
     assert((mode_info.flags & CLAP_PARAM_IS_STEPPED) != 0u);
     assert((mode_info.flags & CLAP_PARAM_IS_ENUM) != 0u);
+    assert((mode_info.flags & CLAP_PARAM_IS_MODULATABLE) == 0u);
+    assert((meter_info.flags & CLAP_PARAM_IS_READONLY) != 0u);
 
     double value = 0.0;
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 1.0);
+    assert(params->get_value(plugin, 4u, &value));
+    assert(value == 0.25);
 
     char text[64]{};
     assert(params->value_to_text(plugin, 1u, 1.25, text, sizeof(text)));
@@ -288,6 +296,22 @@ int main() {
         .key = -1,
         .value = 0.75,
     };
+    const clap_event_param_value_t readonly_automation{
+        .header = clap_event_header_t{
+            .size = sizeof(clap_event_param_value_t),
+            .time = 7u,
+            .space_id = CLAP_CORE_EVENT_SPACE_ID,
+            .type = CLAP_EVENT_PARAM_VALUE,
+            .flags = 0u,
+        },
+        .param_id = 4u,
+        .cookie = nullptr,
+        .note_id = -1,
+        .port_index = -1,
+        .channel = -1,
+        .key = -1,
+        .value = 0.75,
+    };
     const clap_event_param_value_t automation{
         .header = clap_event_header_t{
             .size = sizeof(clap_event_param_value_t),
@@ -303,6 +327,22 @@ int main() {
         .channel = -1,
         .key = -1,
         .value = 1.5,
+    };
+    const clap_event_param_mod_t non_modulatable_modulation{
+        .header = clap_event_header_t{
+            .size = sizeof(clap_event_param_mod_t),
+            .time = 23u,
+            .space_id = CLAP_CORE_EVENT_SPACE_ID,
+            .type = CLAP_EVENT_PARAM_MOD,
+            .flags = 0u,
+        },
+        .param_id = 2u,
+        .cookie = nullptr,
+        .note_id = -1,
+        .port_index = -1,
+        .channel = -1,
+        .key = -1,
+        .amount = 0.5,
     };
     const clap_event_param_mod_t modulation{
         .header = clap_event_header_t{
@@ -322,7 +362,9 @@ int main() {
     };
     InputEvents process_events;
     process_events.push(&stale_automation.header);
+    process_events.push(&readonly_automation.header);
     process_events.push(&automation.header);
+    process_events.push(&non_modulatable_modulation.header);
     process_events.push(&modulation.header);
     const clap_process_t process{
         .steady_time = 0,
@@ -350,6 +392,8 @@ int main() {
     plugin->deactivate(plugin);
     assert(params->get_value(plugin, 1u, &value));
     assert(value == 1.5); // modulation must not overwrite the base value
+    assert(params->get_value(plugin, 4u, &value));
+    assert(value == 0.25); // readonly host value event must not change the shared snapshot
 
     instance->processor().seed = 42u;
     FixedOutputStream saved;

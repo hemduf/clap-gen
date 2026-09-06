@@ -1,5 +1,6 @@
-ids version=1 next=4 {
+ids version=1 next=5 {
     entry kind="parameter" key="gain" value=1 tombstone=#false
     entry kind="parameter" key="mode" value=2 tombstone=#false
     entry kind="state-field" key="seed" value=3 tombstone=#false
+    entry kind="parameter" key="meter" value=4 tombstone=#false
 }
