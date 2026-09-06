@@ -323,33 +323,15 @@ mod tests {
         let path_text = path.to_string_lossy().into_owned();
         let output_text = output.to_string_lossy().into_owned();
 
-        let error = run(&arguments(&[
-            "generate",
-            "--metadata",
-            &path_text,
-            "--out",
-            &output_text,
-        ]))
-        .expect_err("production generation must reject a missing immutable ID");
+        let error = run(&arguments(&["generate", "--metadata", &path_text, "--out", &output_text]))
+            .expect_err("production generation must reject a missing immutable ID");
         assert!(error.contains("parameter `gain` has no immutable CLAP ID"), "{error}");
 
         let registry_text = registry.to_string_lossy().into_owned();
-        run(&arguments(&[
-            "ids",
-            "allocate",
-            &registry_text,
-            "parameter",
-            "gain",
-        ]))
-        .expect("allocate immutable parameter ID");
-        run(&arguments(&[
-            "generate",
-            "--metadata",
-            &path_text,
-            "--out",
-            &output_text,
-        ]))
-        .expect("generation should succeed after allocating the ID");
+        run(&arguments(&["ids", "allocate", &registry_text, "parameter", "gain"]))
+            .expect("allocate immutable parameter ID");
+        run(&arguments(&["generate", "--metadata", &path_text, "--out", &output_text]))
+            .expect("generation should succeed after allocating the ID");
         assert!(output.join("clapgen_extensions.hpp").is_file());
 
         fs::remove_dir_all(directory).expect("temporary directory should be removable");
