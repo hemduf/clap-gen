@@ -37,6 +37,10 @@ fn has_flag(parameter: &ParameterIr, flag: &str) -> bool {
     parameter.flags.iter().any(|candidate| candidate == flag)
 }
 
+fn has_any_flag(parameter: &ParameterIr, flags: &[&str]) -> bool {
+    flags.iter().any(|flag| has_flag(parameter, flag))
+}
+
 fn exactly_equal(left: f64, right: f64) -> bool {
     left.partial_cmp(&right) == Some(Ordering::Equal)
 }
@@ -63,6 +67,95 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+struct ParameterCapabilities {
+    stepped: bool,
+    enumeration: bool,
+    bypass: bool,
+    readonly: bool,
+    automatable: bool,
+    modulatable: bool,
+    poly_automatable: bool,
+    poly_modulatable: bool,
+}
+
+impl ParameterCapabilities {
+    fn from_parameter(parameter: &ParameterIr) -> Self {
+        Self {
+            stepped: has_flag(parameter, "stepped"),
+            enumeration: has_flag(parameter, "enum"),
+            bypass: has_flag(parameter, "bypass"),
+            readonly: has_flag(parameter, "readonly"),
+            automatable: has_flag(parameter, "automatable"),
+            modulatable: has_flag(parameter, "modulatable"),
+            poly_automatable: has_any_flag(
+                parameter,
+                &[
+                    "automatable-per-note-id",
+                    "automatable-per-key",
+                    "automatable-per-channel",
+                    "automatable-per-port",
+                ],
+            ),
+            poly_modulatable: has_any_flag(
+                parameter,
+                &[
+                    "modulatable-per-note-id",
+                    "modulatable-per-key",
+                    "modulatable-per-channel",
+                    "modulatable-per-port",
+                ],
+            ),
+        }
+    }
+}
+
+fn validate_parameter_capabilities(
+    parameter: &ParameterIr,
+    capabilities: ParameterCapabilities,
+) -> Result<(), String> {
+    if capabilities.enumeration && !capabilities.stepped {
+        return Err(format!(
+            "parameter `{}` is enum but not stepped; CLAP_PARAM_IS_ENUM requires CLAP_PARAM_IS_STEPPED",
+            parameter.id
+        ));
+    }
+    if capabilities.bypass
+        && (!capabilities.stepped
+            || !exactly_equal(parameter.min, 0.0)
+            || !exactly_equal(parameter.max, 1.0))
+    {
+        return Err(format!(
+            "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
+            parameter.id
+        ));
+    }
+    if capabilities.poly_automatable && !capabilities.automatable {
+        return Err(format!(
+            "parameter `{}` declares per-* automatable flags without the base automatable capability",
+            parameter.id
+        ));
+    }
+    if capabilities.poly_modulatable && !capabilities.modulatable {
+        return Err(format!(
+            "parameter `{}` declares per-* modulatable flags without the base modulatable capability",
+            parameter.id
+        ));
+    }
+    if capabilities.readonly
+        && (capabilities.automatable
+            || capabilities.modulatable
+            || capabilities.poly_automatable
+            || capabilities.poly_modulatable)
+    {
+        return Err(format!(
+            "parameter `{}` is readonly but also automatable or modulatable",
+            parameter.id
+        ));
+    }
+    Ok(())
+}
+
 fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
     if !parameter.min.is_finite() || !parameter.max.is_finite() || !parameter.default.is_finite() {
         return Err(format!(
@@ -71,62 +164,9 @@ fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
         ));
     }
 
-    let stepped = has_flag(parameter, "stepped");
-    let enumeration = has_flag(parameter, "enum");
-    let bypass = has_flag(parameter, "bypass");
-    let readonly = has_flag(parameter, "readonly");
-    let automatable = has_flag(parameter, "automatable");
-    let modulatable = has_flag(parameter, "modulatable");
-    let poly_automatable = [
-        "automatable-per-note-id",
-        "automatable-per-key",
-        "automatable-per-channel",
-        "automatable-per-port",
-    ]
-    .iter()
-    .any(|flag| has_flag(parameter, flag));
-    let poly_modulatable = [
-        "modulatable-per-note-id",
-        "modulatable-per-key",
-        "modulatable-per-channel",
-        "modulatable-per-port",
-    ]
-    .iter()
-    .any(|flag| has_flag(parameter, flag));
-
-    if enumeration && !stepped {
-        return Err(format!(
-            "parameter `{}` is enum but not stepped; CLAP_PARAM_IS_ENUM requires CLAP_PARAM_IS_STEPPED",
-            parameter.id
-        ));
-    }
-    if bypass
-        && (!stepped || !exactly_equal(parameter.min, 0.0) || !exactly_equal(parameter.max, 1.0))
-    {
-        return Err(format!(
-            "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
-            parameter.id
-        ));
-    }
-    if poly_automatable && !automatable {
-        return Err(format!(
-            "parameter `{}` declares per-* automatable flags without the base automatable capability",
-            parameter.id
-        ));
-    }
-    if poly_modulatable && !modulatable {
-        return Err(format!(
-            "parameter `{}` declares per-* modulatable flags without the base modulatable capability",
-            parameter.id
-        ));
-    }
-    if readonly && (automatable || modulatable || poly_automatable || poly_modulatable) {
-        return Err(format!(
-            "parameter `{}` is readonly but also automatable or modulatable",
-            parameter.id
-        ));
-    }
-    validate_stepped_parameter(parameter, stepped)
+    let capabilities = ParameterCapabilities::from_parameter(parameter);
+    validate_parameter_capabilities(parameter, capabilities)?;
+    validate_stepped_parameter(parameter, capabilities.stepped)
 }
 
 fn validate_stepped_parameter(parameter: &ParameterIr, stepped: bool) -> Result<(), String> {
