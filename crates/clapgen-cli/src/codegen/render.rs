@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use crate::ir::CanonicalIr;
+use crate::ir::{CanonicalIr, ParameterIr};
 
 use super::{
     GeneratedFile, GenerationPlan, OUTPUT_NAMES, depfile, descriptor_cpp, entry_cpp, extension_cpp,
@@ -33,7 +33,7 @@ pub(crate) fn render_for_output_checked(
     Ok(render_for_output(ir, dependency_base, output_directory))
 }
 
-fn has_flag(parameter: &crate::ir::ParameterIr, flag: &str) -> bool {
+fn has_flag(parameter: &ParameterIr, flag: &str) -> bool {
     parameter.flags.iter().any(|candidate| candidate == flag)
 }
 
@@ -57,106 +57,118 @@ fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
                 .to_owned(),
         );
     }
-
     for parameter in ir.parameters() {
-        if !parameter.min.is_finite()
-            || !parameter.max.is_finite()
-            || !parameter.default.is_finite()
-        {
-            return Err(format!(
-                "parameter `{}` has a non-finite range/default; CLAP parameter values must be finite",
-                parameter.id
-            ));
-        }
+        validate_parameter(parameter)?;
+    }
+    Ok(())
+}
 
-        let stepped = has_flag(parameter, "stepped");
-        let enumeration = has_flag(parameter, "enum");
-        let bypass = has_flag(parameter, "bypass");
-        let readonly = has_flag(parameter, "readonly");
-        let automatable = has_flag(parameter, "automatable");
-        let modulatable = has_flag(parameter, "modulatable");
-        let poly_automatable = [
-            "automatable-per-note-id",
-            "automatable-per-key",
-            "automatable-per-channel",
-            "automatable-per-port",
-        ]
-        .iter()
-        .any(|flag| has_flag(parameter, flag));
-        let poly_modulatable = [
-            "modulatable-per-note-id",
-            "modulatable-per-key",
-            "modulatable-per-channel",
-            "modulatable-per-port",
-        ]
-        .iter()
-        .any(|flag| has_flag(parameter, flag));
+fn validate_parameter(parameter: &ParameterIr) -> Result<(), String> {
+    if !parameter.min.is_finite()
+        || !parameter.max.is_finite()
+        || !parameter.default.is_finite()
+    {
+        return Err(format!(
+            "parameter `{}` has a non-finite range/default; CLAP parameter values must be finite",
+            parameter.id
+        ));
+    }
 
-        if enumeration && !stepped {
-            return Err(format!(
-                "parameter `{}` is enum but not stepped; CLAP_PARAM_IS_ENUM requires CLAP_PARAM_IS_STEPPED",
-                parameter.id
-            ));
-        }
-        if bypass
-            && (!stepped
-                || !exactly_equal(parameter.min, 0.0)
-                || !exactly_equal(parameter.max, 1.0))
-        {
-            return Err(format!(
-                "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
-                parameter.id
-            ));
-        }
-        if poly_automatable && !automatable {
-            return Err(format!(
-                "parameter `{}` declares per-* automatable flags without the base automatable capability",
-                parameter.id
-            ));
-        }
-        if poly_modulatable && !modulatable {
-            return Err(format!(
-                "parameter `{}` declares per-* modulatable flags without the base modulatable capability",
-                parameter.id
-            ));
-        }
-        if readonly && (automatable || modulatable || poly_automatable || poly_modulatable) {
-            return Err(format!(
-                "parameter `{}` is readonly but also automatable or modulatable",
-                parameter.id
-            ));
-        }
-        if stepped {
-            let (Some(minimum), Some(maximum), Some(_default)) = (
-                integer_plain_value(parameter.min),
-                integer_plain_value(parameter.max),
-                integer_plain_value(parameter.default),
-            ) else {
-                return Err(format!(
-                    "parameter `{}` is stepped but its min/max/default are not representable integer plain values",
-                    parameter.id
-                ));
-            };
-            if let Some(steps) = parameter.steps {
-                let expected = maximum
-                    .checked_sub(minimum)
-                    .and_then(|span| span.checked_add(1))
-                    .ok_or_else(|| {
-                        format!(
-                            "parameter `{}` stepped domain is too large to represent safely",
-                            parameter.id
-                        )
-                    })?;
-                if steps != expected {
-                    return Err(format!(
-                        "parameter `{}` declares {steps} steps but its integer CLAP domain contains {expected} values",
-                        parameter.id
-                    ));
-                }
-            }
-        } else if parameter.steps.is_some() {
-            return Err(format!(
+    let stepped = has_flag(parameter, "stepped");
+    let enumeration = has_flag(parameter, "enum");
+    let bypass = has_flag(parameter, "bypass");
+    let readonly = has_flag(parameter, "readonly");
+    let automatable = has_flag(parameter, "automatable");
+    let modulatable = has_flag(parameter, "modulatable");
+    let poly_automatable = [
+        "automatable-per-note-id",
+        "automatable-per-key",
+        "automatable-per-channel",
+        "automatable-per-port",
+    ]
+    .iter()
+    .any(|flag| has_flag(parameter, flag));
+    let poly_modulatable = [
+        "modulatable-per-note-id",
+        "modulatable-per-key",
+        "modulatable-per-channel",
+        "modulatable-per-port",
+    ]
+    .iter()
+    .any(|flag| has_flag(parameter, flag));
+
+    if enumeration && !stepped {
+        return Err(format!(
+            "parameter `{}` is enum but not stepped; CLAP_PARAM_IS_ENUM requires CLAP_PARAM_IS_STEPPED",
+            parameter.id
+        ));
+    }
+    if bypass
+        && (!stepped
+            || !exactly_equal(parameter.min, 0.0)
+            || !exactly_equal(parameter.max, 1.0))
+    {
+        return Err(format!(
+            "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
+            parameter.id
+        ));
+    }
+    if poly_automatable && !automatable {
+        return Err(format!(
+            "parameter `{}` declares per-* automatable flags without the base automatable capability",
+            parameter.id
+        ));
+    }
+    if poly_modulatable && !modulatable {
+        return Err(format!(
+            "parameter `{}` declares per-* modulatable flags without the base modulatable capability",
+            parameter.id
+        ));
+    }
+    if readonly && (automatable || modulatable || poly_automatable || poly_modulatable) {
+        return Err(format!(
+            "parameter `{}` is readonly but also automatable or modulatable",
+            parameter.id
+        ));
+    }
+    validate_stepped_parameter(parameter, stepped)
+}
+
+fn validate_stepped_parameter(parameter: &ParameterIr, stepped: bool) -> Result<(), String> {
+    if !stepped {
+        return if parameter.steps.is_some() {
+            Err(format!(
                 "parameter `{}` declares `steps` without the stepped flag",
+                parameter.id
+            ))
+        } else {
+            Ok(())
+        };
+    }
+
+    let (Some(minimum), Some(maximum), Some(_default)) = (
+        integer_plain_value(parameter.min),
+        integer_plain_value(parameter.max),
+        integer_plain_value(parameter.default),
+    ) else {
+        return Err(format!(
+            "parameter `{}` is stepped but its min/max/default are not representable integer plain values",
+            parameter.id
+        ));
+    };
+    if let Some(steps) = parameter.steps {
+        let expected = maximum
+            .checked_sub(minimum)
+            .and_then(|span| span.checked_add(1))
+            .ok_or_else(|| {
+                format!(
+                    "parameter `{}` stepped domain is too large to represent safely",
+                    parameter.id
+                )
+            })?;
+        if steps != expected {
+            return Err(format!(
+                "parameter `{}` declares {steps} steps but its integer CLAP domain contains {expected} values",
                 parameter.id
             ));
         }
