@@ -59,11 +59,8 @@ fn parameter_spec_block(ir: &CanonicalIr) -> String {
     let params_enabled = has_stable_extension(ir, "clap.params");
     let state_enabled = has_stable_extension(ir, "clap.state");
     let parameters = if params_enabled { ir.parameters() } else { &[] };
-    let mut state_fields = if state_enabled {
-        ir.state_fields().iter().collect::<Vec<_>>()
-    } else {
-        Vec::new()
-    };
+    let mut state_fields =
+        if state_enabled { ir.state_fields().iter().collect::<Vec<_>>() } else { Vec::new() };
     state_fields.sort_by_key(|field| state_field_numeric_id(ir, field));
 
     let mut output = String::from(
@@ -99,10 +96,8 @@ struct GeneratedStateFieldSpec {\n\
         let flags = parameter_flags(parameter);
         let name = cpp_literal::utf8_c_string(&parameter.name);
         let unit = cpp_literal::utf8_c_string(parameter.unit.as_deref().unwrap_or(""));
-        let steps = parameter
-            .steps
-            .map(|value| value.clamp(0, i64::MAX as i128) as i64)
-            .unwrap_or(0);
+        let steps =
+            parameter.steps.map(|value| value.clamp(0, i64::MAX as i128) as i64).unwrap_or(0);
         writeln!(
             &mut output,
             "    GeneratedParameterSpec{{clap_id{{{id}u}}, {flags}, {name}, {unit}, {steps}, {}, {}, {}}},",
