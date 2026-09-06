@@ -37,11 +37,8 @@ fn has_flag(parameter: &crate::ir::ParameterIr, flag: &str) -> bool {
 }
 
 fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
-    let bypass_count = ir
-        .parameters()
-        .iter()
-        .filter(|parameter| has_flag(parameter, "bypass"))
-        .count();
+    let bypass_count =
+        ir.parameters().iter().filter(|parameter| has_flag(parameter, "bypass")).count();
     if bypass_count > 1 {
         return Err(
             "plugin declares more than one bypass parameter; CLAP permits only one CLAP_PARAM_IS_BYPASS parameter"
