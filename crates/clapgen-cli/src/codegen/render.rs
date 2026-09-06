@@ -35,33 +35,61 @@ pub(crate) fn render_for_output_checked(
 pub(crate) fn validate_runtime_ids(ir: &CanonicalIr) -> Result<(), String> {
     let params_enabled =
         ir.stable_extension_items().iter().any(|extension| extension.id == "clap.params");
-    if !params_enabled {
-        return Ok(());
+    if params_enabled {
+        let mut numeric_ids = BTreeSet::new();
+        for parameter in ir.parameters() {
+            let Some(id) = ir
+                .persistent_ids()
+                .iter()
+                .find(|entry| entry.kind == "parameter" && entry.key == parameter.id)
+            else {
+                return Err(format!(
+                    "parameter `{}` has no immutable CLAP ID\nhint: run `clapgen ids allocate plugin.ids.kdl parameter {}` before generating the plugin",
+                    parameter.id, parameter.id
+                ));
+            };
+            if id.value == u32::MAX {
+                return Err(format!(
+                    "parameter `{}` uses CLAP_INVALID_ID ({})\nhint: allocate a different immutable numeric ID",
+                    parameter.id, id.value
+                ));
+            }
+            if !numeric_ids.insert(id.value) {
+                return Err(format!(
+                    "parameter `{}` collides on immutable CLAP ID {}\nhint: repair plugin.ids.kdl before generating the plugin",
+                    parameter.id, id.value
+                ));
+            }
+        }
     }
 
-    let mut numeric_ids = BTreeSet::new();
-    for parameter in ir.parameters() {
-        let Some(id) = ir
-            .persistent_ids()
-            .iter()
-            .find(|entry| entry.kind == "parameter" && entry.key == parameter.id)
-        else {
-            return Err(format!(
-                "parameter `{}` has no immutable CLAP ID\nhint: run `clapgen ids allocate plugin.ids.kdl parameter {}` before generating the plugin",
-                parameter.id, parameter.id
-            ));
-        };
-        if id.value == u32::MAX {
-            return Err(format!(
-                "parameter `{}` uses CLAP_INVALID_ID ({})\nhint: allocate a different immutable numeric ID",
-                parameter.id, id.value
-            ));
-        }
-        if !numeric_ids.insert(id.value) {
-            return Err(format!(
-                "parameter `{}` collides on immutable CLAP ID {}\nhint: repair plugin.ids.kdl before generating the plugin",
-                parameter.id, id.value
-            ));
+    let state_enabled =
+        ir.stable_extension_items().iter().any(|extension| extension.id == "clap.state");
+    if state_enabled {
+        let mut numeric_ids = BTreeSet::new();
+        for field in ir.state_fields() {
+            let key = field.tag.as_deref().unwrap_or(&field.name);
+            let Some(id) = ir
+                .persistent_ids()
+                .iter()
+                .find(|entry| entry.kind == "state-field" && entry.key == key)
+            else {
+                return Err(format!(
+                    "state field `{key}` has no immutable state ID\nhint: run `clapgen ids allocate plugin.ids.kdl state-field {key}` before generating the plugin"
+                ));
+            };
+            if id.value == u32::MAX {
+                return Err(format!(
+                    "state field `{key}` uses CLAP_INVALID_ID ({})\nhint: allocate a different immutable numeric ID",
+                    id.value
+                ));
+            }
+            if !numeric_ids.insert(id.value) {
+                return Err(format!(
+                    "state field `{key}` collides on immutable state ID {}\nhint: repair plugin.ids.kdl before generating the plugin",
+                    id.value
+                ));
+            }
         }
     }
     Ok(())
