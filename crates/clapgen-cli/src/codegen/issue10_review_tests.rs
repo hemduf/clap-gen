@@ -150,3 +150,34 @@ fn issue10_stepped_parameters_use_integer_plain_values() {
     let error = build(&source).expect_err("stepped parameter with non-integer plain values must fail");
     assert!(error.contains("stepped") && error.contains("integer"), "{error}");
 }
+
+#[test]
+fn issue10_poly_flags_require_their_base_capability() {
+    for (needle, replacement, expected) in [
+        (
+            "flags=\"automatable,modulatable\"",
+            "flags=\"automatable-per-note-id,modulatable\"",
+            "automatable",
+        ),
+        (
+            "flags=\"automatable,modulatable\"",
+            "flags=\"automatable,modulatable-per-key\"",
+            "modulatable",
+        ),
+    ] {
+        let source = VALID_SOURCE.replacen(needle, replacement, 1);
+        let error = build(&source).expect_err("poly flag without base capability must fail");
+        assert!(error.contains(expected) && error.contains("per-"), "{error}");
+    }
+}
+
+#[test]
+fn issue10_readonly_parameters_cannot_be_automatable_or_modulatable() {
+    let source = VALID_SOURCE.replacen(
+        "flags=\"automatable,modulatable\"",
+        "flags=\"readonly,automatable,modulatable\"",
+        1,
+    );
+    let error = build(&source).expect_err("readonly mutable parameter contract must fail");
+    assert!(error.contains("readonly") && error.contains("automatable"), "{error}");
+}
