@@ -197,7 +197,10 @@ fn issue10_state_wire_is_explicit_little_endian_and_not_native_object_layout() {
         "read_all(stream, &record, sizeof(record))",
         "read_all(stream, &value, sizeof(value))",
     ] {
-        assert!(!backend.contains(forbidden), "native object-layout state leak `{forbidden}`:\n{backend}");
+        assert!(
+            !backend.contains(forbidden),
+            "native object-layout state leak `{forbidden}`:\n{backend}"
+        );
     }
 }
 
@@ -226,12 +229,9 @@ fn issue10_parameter_conversion_preserves_units_and_stepped_domain() {
     for required in ["const char* unit", "std::int64_t steps", "\"x\"", "3"] {
         assert!(extensions.contains(required), "missing `{required}`:\n{extensions}");
     }
-    for required in [
-        "parameter_value_is_valid",
-        "parameter_text_suffix_matches",
-        "spec.unit",
-        "spec.steps",
-    ] {
+    for required in
+        ["parameter_value_is_valid", "parameter_text_suffix_matches", "spec.unit", "spec.steps"]
+    {
         assert!(backend.contains(required), "missing `{required}`:\n{backend}");
     }
 }
