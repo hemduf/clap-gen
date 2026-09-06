@@ -32,10 +32,70 @@ pub(crate) fn render_for_output_checked(
     Ok(render_for_output(ir, dependency_base, output_directory))
 }
 
+fn validate_parameter_contract(ir: &CanonicalIr) -> Result<(), String> {
+    for parameter in ir.parameters() {
+        if !parameter.min.is_finite()
+            || !parameter.max.is_finite()
+            || !parameter.default.is_finite()
+        {
+            return Err(format!(
+                "parameter `{}` has a non-finite range/default; CLAP parameter values must be finite",
+                parameter.id
+            ));
+        }
+
+        let stepped = parameter.flags.iter().any(|flag| flag == "stepped");
+        let enumeration = parameter.flags.iter().any(|flag| flag == "enum");
+        let bypass = parameter.flags.iter().any(|flag| flag == "bypass");
+
+        if enumeration && !stepped {
+            return Err(format!(
+                "parameter `{}` is enum but not stepped; CLAP_PARAM_IS_ENUM requires CLAP_PARAM_IS_STEPPED",
+                parameter.id
+            ));
+        }
+        if bypass
+            && (!stepped || parameter.min != 0.0 || parameter.max != 1.0)
+        {
+            return Err(format!(
+                "parameter `{}` is bypass but does not use the native stepped 0..1 domain",
+                parameter.id
+            ));
+        }
+        if stepped {
+            if parameter.min.fract() != 0.0
+                || parameter.max.fract() != 0.0
+                || parameter.default.fract() != 0.0
+            {
+                return Err(format!(
+                    "parameter `{}` is stepped but its min/max/default are not integer plain values",
+                    parameter.id
+                ));
+            }
+            if let Some(steps) = parameter.steps {
+                let expected = (parameter.max - parameter.min) as i128 + 1;
+                if steps != expected {
+                    return Err(format!(
+                        "parameter `{}` declares {steps} steps but its integer CLAP domain contains {expected} values",
+                        parameter.id
+                    ));
+                }
+            }
+        } else if parameter.steps.is_some() {
+            return Err(format!(
+                "parameter `{}` declares `steps` without the stepped flag",
+                parameter.id
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_runtime_ids(ir: &CanonicalIr) -> Result<(), String> {
     let params_enabled =
         ir.stable_extension_items().iter().any(|extension| extension.id == "clap.params");
     if params_enabled {
+        validate_parameter_contract(ir)?;
         let mut numeric_ids = BTreeSet::new();
         for parameter in ir.parameters() {
             let Some(id) = ir
